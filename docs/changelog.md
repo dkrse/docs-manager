@@ -2,6 +2,22 @@
 
 **Author:** krse
 
+## v1.1.0 - Full-Text Search & Help
+
+### Full-Text Search
+- Search inside document content (PDF, DOCX, MD, TXT), not just metadata
+- Text extracted on upload via `extract_text()` helper using PyMuPDF, python-docx, and file read
+- Content stored normalized (lowercase, no diacritics) in `Document.content` column
+- Diacritics-insensitive — e.g. searching "faktura" finds "Faktúra" inside documents
+- Existing documents backfilled automatically on startup
+
+### Help Manual
+- New `/help` page with accordion-style user manual
+- Covers: overview, uploading, dashboard, search & filters, settings, visibility, admin features, password change
+- Accessible via `?` icon in the navigation bar
+
+---
+
 ## v1.0.0 - Initial Release
 
 ### Core Features

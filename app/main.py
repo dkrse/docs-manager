@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from app.database import engine, SessionLocal
-from app.models import Base, User
+from app.models import Base, User, Document
 from app.auth import hash_password
+from app.routes.document_routes import extract_text, remove_diacritics
 from app.routes import auth_routes, user_routes, document_routes
 
 app = FastAPI(title="Document Manager")
@@ -23,6 +24,19 @@ def startup():
         if not admin:
             admin = User(username="admin", hashed_password=hash_password("admin"), is_admin=True)
             db.add(admin)
+            db.commit()
+        # Backfill content for existing documents
+        docs = db.query(Document).filter(
+            (Document.content == None) | (Document.content == "")
+        ).all()
+        for doc in docs:
+            try:
+                text = extract_text(doc.file_path, doc.file_extension or "")
+                if text:
+                    doc.content = remove_diacritics(text.lower())
+            except Exception:
+                pass
+        if docs:
             db.commit()
     finally:
         db.close()

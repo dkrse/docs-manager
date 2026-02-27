@@ -52,6 +52,7 @@ Admin account is created automatically on first startup.
 - **Multi-format support**: PDF, DOCX, Markdown, TXT
 - **In-browser viewing**: PDF viewer, Markdown/DOCX/TXT renderers
 - **Tile-based UI**: compact document grid with thumbnails
+- **Full-text search**: searches inside document content (PDF, DOCX, MD, TXT)
 - **Live search**: diacritics-insensitive, no Enter key needed
 - **Filters**: category, file type, sort (date, size, random)
 - **Metadata**: category, hashtags, description, notes, document date
@@ -60,6 +61,7 @@ Admin account is created automatically on first startup.
 - **User settings**: page size, default sort, hidden hashtags, light/dark theme
 - **Access control**: admin/user roles, private documents
 - **Offline**: all CSS/JS/fonts served locally
+- **Help manual**: in-app user guide accessible via navbar
 - **Docker ready**: Dockerfile + docker-compose.yml
 
 ## Documentation

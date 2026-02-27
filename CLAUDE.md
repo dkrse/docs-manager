@@ -35,23 +35,24 @@ python -c "from app.database import engine; from app.models import Base; Base.me
 
 ```
 app/
-  main.py           - FastAPI app, startup (creates admin user)
+  main.py           - FastAPI app, startup (creates admin user, backfills content)
   config.py          - Settings from env vars
   database.py        - SQLAlchemy engine/session
-  models.py          - User, UserSettings, Document
+  models.py          - User, UserSettings, Document (incl. content column)
   auth.py            - JWT, password hashing, get_current_user dependency
   routes/
     auth_routes.py    - login, logout, change password
     user_routes.py    - admin user CRUD
-    document_routes.py - documents, API, settings, edit metadata, viewers
-  templates/          - Jinja2 (base, dashboard, upload, login, users, settings, change_password)
+    document_routes.py - documents, API, settings, edit metadata, viewers, help, extract_text
+  templates/          - Jinja2 (base, dashboard, upload, login, users, settings, change_password, help)
   static/             - Local CSS/JS/fonts (Bootstrap, Icons, Flatpickr)
 uploads/              - Document files + thumbnails/
 ```
 
 ## Important Patterns
 
-- **Diacritics-free search**: `unicodedata.normalize('NFKD', s)` - removes accents for Slovak text
+- **Full-text search**: `extract_text()` extracts content on upload, stored normalized in `Document.content`; existing docs backfilled on startup
+- **Diacritics-free search**: `unicodedata.normalize('NFKD', s)` - removes accents for Slovak text (applied to both search queries and stored content)
 - **Duplicate prevention**: SHA-256 content hash checked before upload
 - **Theme**: Bootstrap 5.3 `data-bs-theme` set via cookie at page load (no flash)
 - **Tile grid**: flexbox with fixed 144px tile width, not Bootstrap grid

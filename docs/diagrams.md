@@ -66,6 +66,7 @@ erDiagram
         int file_size
         datetime document_date
         varchar content_hash
+        text content
     }
 
     users ||--o| user_settings : "has"
@@ -109,11 +110,12 @@ sequenceDiagram
     else New file
         DB-->>S: No match
         S->>FS: Save file as hash (no extension)
+        S->>S: Extract text content (extract_text)
         alt PDF file
             S->>S: Generate thumbnail (PyMuPDF)
             S->>FS: Save thumbnail PNG
         end
-        S->>DB: Insert document record
+        S->>DB: Insert document record (with content)
         S-->>B: Redirect to dashboard
     end
 ```
@@ -158,6 +160,7 @@ graph LR
         EDIT[POST /document/id/edit]
         DEL[POST /document/id/delete]
         API[GET /api/documents]
+        HELP[GET /help]
         SET[GET/POST /settings]
         CHPW[GET/POST /change-password]
         LOGOUT[GET /logout]

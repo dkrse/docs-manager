@@ -16,7 +16,7 @@ Document Manager is a FastAPI web application for managing documents (PDF, DOCX,
 | Auth | JWT (python-jose) in httponly cookies |
 | Password hashing | passlib + bcrypt |
 | Templates | Jinja2 + Bootstrap 5.3 |
-| PDF processing | PyMuPDF (thumbnail generation) |
+| PDF processing | PyMuPDF (thumbnail generation, text extraction) |
 | DOCX processing | python-docx (HTML rendering) |
 | Markdown | markdown (HTML rendering) |
 | Deployment | Docker / Docker Compose |
@@ -44,6 +44,7 @@ Document Manager is a FastAPI web application for managing documents (PDF, DOCX,
 │   │   ├── upload.html
 │   │   ├── users.html        # Admin user management
 │   │   ├── settings.html     # User preferences
+│   │   ├── help.html          # Help manual (accordion)
 │   │   └── change_password.html
 │   └── static/
 │       ├── css/              # Bootstrap, Bootstrap Icons, Flatpickr, custom
@@ -87,8 +88,11 @@ Private documents are visible only to uploader and admin.
 ## Search
 
 - Live search (debounced 300ms, no Enter required)
-- Diacritics-insensitive (unicode normalization NFKD)
-- Searches across: filename, description, notes, hashtags
+- **Full-text search**: searches inside document content (PDF, DOCX, MD, TXT)
+- Diacritics-insensitive (unicode normalization NFKD) — both metadata and content
+- Searches across: filename, description, notes, hashtags, **document content**
+- Content extracted on upload via `extract_text()` helper, stored normalized (lowercase, no diacritics) in `Document.content` column
+- Existing documents backfilled on startup
 - Filters: category, file type (.pdf/.docx/.md/.txt)
 - Sort: random (default), upload date, document date, file size
 

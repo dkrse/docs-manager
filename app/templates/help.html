@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Help - Document Manager{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h4 class="mb-4"><i class="bi bi-question-circle"></i> Help Manual</h4>
+
+        <div class="accordion" id="helpAccordion">
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#helpOverview" aria-expanded="true">
+                        <i class="bi bi-info-circle me-2"></i> Overview
+                    </button>
+                </h2>
+                <div id="helpOverview" class="accordion-collapse collapse show" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <p>Document Manager is a web application for storing and organizing documents. Supported file types:</p>
+                        <ul>
+                            <li><i class="bi bi-file-earmark-pdf text-danger"></i> <strong>PDF</strong> &mdash; with thumbnail preview and in-browser viewer</li>
+                            <li><i class="bi bi-file-earmark-word text-primary"></i> <strong>DOCX</strong> &mdash; Microsoft Word documents, rendered as HTML</li>
+                            <li><i class="bi bi-file-earmark-text text-info"></i> <strong>MD</strong> &mdash; Markdown files, rendered with formatting</li>
+                            <li><i class="bi bi-file-earmark-text text-secondary"></i> <strong>TXT</strong> &mdash; plain text files</li>
+                        </ul>
+                        <p>Each document can have a <strong>category</strong>, <strong>hashtags</strong>, <strong>description</strong>, <strong>notes</strong>, <strong>document date</strong>, and <strong>private/public</strong> visibility.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpUpload">
+                        <i class="bi bi-upload me-2"></i> Uploading Documents
+                    </button>
+                </h2>
+                <div id="helpUpload" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <ol>
+                            <li>Click <strong>Upload</strong> in the navigation bar.</li>
+                            <li>Select a file (PDF, DOCX, MD, or TXT).</li>
+                            <li>For PDF files, you can choose which page to use as the <strong>thumbnail preview</strong>.</li>
+                            <li>Fill in optional metadata:
+                                <ul>
+                                    <li><strong>Category</strong> &mdash; e.g. Invoice, Report, Contract</li>
+                                    <li><strong>Hashtags</strong> &mdash; comma-separated tags for organizing, e.g. <code>finance, 2024, quarterly</code></li>
+                                    <li><strong>Description</strong> &mdash; short summary of the document</li>
+                                    <li><strong>Notes</strong> &mdash; additional notes for your reference</li>
+                                    <li><strong>Document Date</strong> &mdash; the date the document relates to (not the upload date)</li>
+                                    <li><strong>Private</strong> &mdash; check this to make the document visible only to you and admins</li>
+                                </ul>
+                            </li>
+                            <li>Click <strong>Upload</strong>.</li>
+                        </ol>
+                        <div class="alert alert-info small mb-0">
+                            <i class="bi bi-info-circle"></i> Duplicate files are automatically detected. If a file with the same content already exists, the upload will be rejected.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpDashboard">
+                        <i class="bi bi-grid me-2"></i> Dashboard
+                    </button>
+                </h2>
+                <div id="helpDashboard" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <p>The dashboard shows all your documents as tiles. Each tile displays the filename, upload date, and file size.</p>
+                        <h6>Actions on each tile:</h6>
+                        <ul>
+                            <li><strong>Click the tile</strong> &mdash; opens the document viewer (PDF in iframe, others rendered as HTML)</li>
+                            <li><i class="bi bi-pencil text-warning"></i> <strong>Edit</strong> &mdash; edit the document metadata (category, tags, description, notes, date, visibility)</li>
+                            <li><i class="bi bi-download text-success"></i> <strong>Download</strong> &mdash; download the original file</li>
+                            <li><i class="bi bi-trash text-danger"></i> <strong>Delete</strong> &mdash; permanently delete the document (with confirmation)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpSearch">
+                        <i class="bi bi-search me-2"></i> Search & Filters
+                    </button>
+                </h2>
+                <div id="helpSearch" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <h6>Full-text search</h6>
+                        <p>Type in the <strong>Search</strong> field to search across:</p>
+                        <ul>
+                            <li>Filename</li>
+                            <li>Description</li>
+                            <li>Notes</li>
+                            <li>Hashtags</li>
+                            <li><strong>Document content</strong> &mdash; the actual text inside PDF, DOCX, MD, and TXT files</li>
+                        </ul>
+                        <p>Search works <strong>without diacritics</strong> &mdash; e.g. searching for <code>faktura</code> will find documents containing "Fakt&uacute;ra".</p>
+                        <p>Results update automatically as you type.</p>
+
+                        <h6>Filters</h6>
+                        <p>Click the <i class="bi bi-funnel"></i> <strong>Filter</strong> button to show advanced filters:</p>
+                        <ul>
+                            <li><strong>Category</strong> &mdash; filter by document category</li>
+                            <li><strong>Type</strong> &mdash; filter by file type (PDF, DOCX, MD, TXT)</li>
+                            <li><strong>Sort</strong> &mdash; change sort order (random, upload date, document date, file size)</li>
+                            <li><strong>Doc date</strong> &mdash; filter by document date range</li>
+                            <li><strong>Upload date</strong> &mdash; filter by upload date range</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpSettings">
+                        <i class="bi bi-gear me-2"></i> Settings
+                    </button>
+                </h2>
+                <div id="helpSettings" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <p>Click the <i class="bi bi-gear"></i> icon in the navigation bar to access settings:</p>
+                        <ul>
+                            <li><strong>Theme</strong> &mdash; switch between Light and Dark mode</li>
+                            <li><strong>Documents per page</strong> &mdash; number of tiles shown per page (5&ndash;100)</li>
+                            <li><strong>Default sort</strong> &mdash; the default sort order when you open the dashboard</li>
+                            <li><strong>Hidden hashtags</strong> &mdash; comma-separated list of tags; documents with these hashtags will be hidden from your dashboard</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpVisibility">
+                        <i class="bi bi-eye me-2"></i> Document Visibility
+                    </button>
+                </h2>
+                <div id="helpVisibility" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <ul>
+                            <li><strong>Public documents</strong> &mdash; visible to all users</li>
+                            <li><strong>Private documents</strong> <span class="badge bg-warning text-dark"><i class="bi bi-lock"></i></span> &mdash; visible only to the uploader and admins</li>
+                        </ul>
+                        <p>You can change visibility at any time by editing the document metadata.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpAdmin">
+                        <i class="bi bi-shield-lock me-2"></i> Admin Features
+                    </button>
+                </h2>
+                <div id="helpAdmin" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <p>Admin users have additional capabilities:</p>
+                        <ul>
+                            <li>View <strong>all documents</strong> (including private documents from all users)</li>
+                            <li><strong>Edit and delete</strong> any document</li>
+                            <li>Manage users via <strong>Users</strong> page &mdash; create, edit, and delete user accounts</li>
+                        </ul>
+                        <div class="alert alert-warning small mb-0">
+                            <i class="bi bi-exclamation-triangle"></i> Admin users cannot upload documents. Only regular users can upload.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpPassword">
+                        <i class="bi bi-key me-2"></i> Changing Password
+                    </button>
+                </h2>
+                <div id="helpPassword" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <p>Click your <strong>username</strong> in the navigation bar to access the password change form. You need to enter your current password and the new password twice.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

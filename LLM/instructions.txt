@@ -72,3 +72,36 @@ INFO:     192.168.1.110:58986 - "GET /css/fonts/bootstrap-icons.woff?7141511ac37
 
 
 - do docs/price.md - analyzuj mozne ceny za tento produkt, analyzuj realne.
+
+
+-- ver. 2
+
+- pod 'Search' GUI komponentu presun 'All Categories', 'All Types', komponentu triedenia a k nim pridaj este, datum od do, datum uploadu od do. datumy - pouzi so slovenskou lokalizaciou. cele to nech je filter a nech sa zobrazuje/skryva;
+
+- jazyk aplikacie je anglictina;
+- vyhladavanie ma akceptovat filter a tak hladat;
+- filter nejak preusporiadaj, aby nemal vela volnych, prazdnych miest a nezaberal taku plochu;
+
+- navrhni dalse mozne funkcionality, co by bolo mozne este pridat aby praca s dokumentami bola efektivna, rychla, bezpecna. len navrhni moznosti neimplementuj;
+
+- implementuj:   11. Full-text search – vyhľadávanie v obsahu PDF/DOCX/TXT/MD (napr. cez Apache Tika alebo vlastný indexer);
+
+
+- Full-text search, musi fungovat aj bez diakritiky;
+'
+ File "/usr/local/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 922, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedColumn) column documents.content does not exist
+LINE 1: ...documents.content_hash AS documents_content_hash, documents....
+                                                             ^
+[SQL: SELECT documents.id AS documents_id, documents.filename AS documents_filename, documents.original_filename AS documents_original_filename, documents.file_extension AS documents_file_extension, documents.file_path AS documents_file_path, documents.thumbnail_path AS documents_thumbnail_path, documents.thumbnail_page AS documents_thumbnail_page, documents.category AS documents_category, documents.hashtags AS documents_hashtags, documents.description AS documents_description, documents.notes AS documents_notes, documents.is_private AS documents_is_private, documents.uploaded_by AS documents_uploaded_by, documents.uploaded_at AS documents_uploaded_at, documents.file_size AS documents_file_size, documents.document_date AS documents_document_date, documents.content_hash AS documents_content_hash, documents.content AS documents_content
+FROM documents
+WHERE documents.content IS NULL OR documents.content = %(content_1)s]
+[parameters: {'content_1': ''}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+ERROR:    Application startup failed. Exiting.
+'
+
+- pridaj este help manual - ako pouzivat aplikaciu, vytvor novy html subor.
+
+- aktualizuj docs/architecture.md, docs/changelog.md, docs/diagrams.md, readme.md, claude.md;

@@ -50,5 +50,6 @@ class Document(Base):
     file_size = Column(Integer, default=0)
     document_date = Column(DateTime, nullable=True)
     content_hash = Column(String(64), nullable=False, index=True)
+    content = Column(Text, default="")
 
     uploader = relationship("User", back_populates="documents")

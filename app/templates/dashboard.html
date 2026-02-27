@@ -8,37 +8,61 @@
     {% endif %}
 </div>
 
-<div class="row g-2 mb-3">
-    <div class="col-md-4">
-        <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search...">
-    </div>
-    <div class="col-md-2">
-        <select id="categoryFilter" class="form-select form-select-sm">
-            <option value="">All Categories</option>
-            {% for cat in categories %}
-            <option value="{{ cat }}">{{ cat }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="col-md-2">
-        <select id="fileTypeFilter" class="form-select form-select-sm">
-            <option value="">All Types</option>
-            <option value=".pdf">PDF</option>
-            <option value=".docx">DOCX</option>
-            <option value=".md">Markdown</option>
-            <option value=".txt">Text</option>
-        </select>
-    </div>
-    <div class="col-md-2">
-        <select id="sortFilter" class="form-select form-select-sm">
-            <option value="random" {% if default_sort == 'random' %}selected{% endif %}>Random</option>
-            <option value="upload_desc" {% if default_sort == 'upload_desc' %}selected{% endif %}>Upload (newest)</option>
-            <option value="upload_asc" {% if default_sort == 'upload_asc' %}selected{% endif %}>Upload (oldest)</option>
-            <option value="date_desc" {% if default_sort == 'date_desc' %}selected{% endif %}>Doc date (newest)</option>
-            <option value="date_asc" {% if default_sort == 'date_asc' %}selected{% endif %}>Doc date (oldest)</option>
-            <option value="size_desc" {% if default_sort == 'size_desc' %}selected{% endif %}>Size (largest)</option>
-            <option value="size_asc" {% if default_sort == 'size_asc' %}selected{% endif %}>Size (smallest)</option>
-        </select>
+<div class="d-flex gap-2 mb-2">
+    <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search..." style="max-width:400px;">
+    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#filterPanel" aria-expanded="false" aria-controls="filterPanel">
+        <i class="bi bi-funnel"></i> Filter
+    </button>
+</div>
+<div class="collapse mb-3" id="filterPanel">
+    <div class="card card-body p-2">
+        <div class="d-flex flex-wrap gap-2 align-items-end">
+            <div>
+                <label class="form-label small mb-0">Category</label>
+                <select id="categoryFilter" class="form-select form-select-sm" style="width:auto;min-width:130px;">
+                    <option value="">All</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat }}">{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label small mb-0">Type</label>
+                <select id="fileTypeFilter" class="form-select form-select-sm" style="width:auto;min-width:100px;">
+                    <option value="">All</option>
+                    <option value=".pdf">PDF</option>
+                    <option value=".docx">DOCX</option>
+                    <option value=".md">MD</option>
+                    <option value=".txt">TXT</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label small mb-0">Sort</label>
+                <select id="sortFilter" class="form-select form-select-sm" style="width:auto;min-width:150px;">
+                    <option value="random" {% if default_sort == 'random' %}selected{% endif %}>Random</option>
+                    <option value="upload_desc" {% if default_sort == 'upload_desc' %}selected{% endif %}>Upload (newest)</option>
+                    <option value="upload_asc" {% if default_sort == 'upload_asc' %}selected{% endif %}>Upload (oldest)</option>
+                    <option value="date_desc" {% if default_sort == 'date_desc' %}selected{% endif %}>Doc date (newest)</option>
+                    <option value="date_asc" {% if default_sort == 'date_asc' %}selected{% endif %}>Doc date (oldest)</option>
+                    <option value="size_desc" {% if default_sort == 'size_desc' %}selected{% endif %}>Size (largest)</option>
+                    <option value="size_asc" {% if default_sort == 'size_asc' %}selected{% endif %}>Size (smallest)</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label small mb-0">Doc date</label>
+                <div class="d-flex gap-1">
+                    <input type="text" id="docDateFrom" class="form-control form-control-sm" placeholder="From" style="width:110px;">
+                    <input type="text" id="docDateTo" class="form-control form-control-sm" placeholder="To" style="width:110px;">
+                </div>
+            </div>
+            <div>
+                <label class="form-label small mb-0">Upload date</label>
+                <div class="d-flex gap-1">
+                    <input type="text" id="uploadDateFrom" class="form-control form-control-sm" placeholder="From" style="width:110px;">
+                    <input type="text" id="uploadDateTo" class="form-control form-control-sm" placeholder="To" style="width:110px;">
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -129,13 +153,22 @@ function formatSize(bytes) {
 }
 
 function getParams() {
-    return {
+    const p = {
         search: document.getElementById('searchInput').value,
         category: document.getElementById('categoryFilter').value,
         file_type: document.getElementById('fileTypeFilter').value,
         sort: document.getElementById('sortFilter').value,
         page: currentPage,
     };
+    const ddf = document.getElementById('docDateFrom').value;
+    const ddt = document.getElementById('docDateTo').value;
+    const udf = document.getElementById('uploadDateFrom').value;
+    const udt = document.getElementById('uploadDateTo').value;
+    if (ddf) p.doc_date_from = ddf;
+    if (ddt) p.doc_date_to = ddt;
+    if (udf) p.upload_date_from = udf;
+    if (udt) p.upload_date_to = udt;
+    return p;
 }
 
 function loadDocuments() {
@@ -289,6 +322,13 @@ document.getElementById('searchInput').addEventListener('input', () => {
 ['categoryFilter', 'fileTypeFilter', 'sortFilter'].forEach(id => {
     document.getElementById(id).addEventListener('change', () => { currentPage = 1; loadDocuments(); });
 });
+
+// Init flatpickr on date filter inputs (Slovak locale)
+const fpOpts = { locale: 'sk', dateFormat: 'Y-m-d', allowInput: true, allowClear: true, onChange: () => { currentPage = 1; loadDocuments(); } };
+flatpickr('#docDateFrom', fpOpts);
+flatpickr('#docDateTo', fpOpts);
+flatpickr('#uploadDateFrom', fpOpts);
+flatpickr('#uploadDateTo', fpOpts);
 
 document.getElementById('docModal').addEventListener('hidden.bs.modal', () => {
     document.getElementById('docModalPdf').src = '';

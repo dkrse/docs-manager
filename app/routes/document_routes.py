@@ -31,6 +31,31 @@ FILE_TYPE_ICONS = {
 }
 
 
+def extract_text(file_path: str, extension: str) -> str:
+    """Extract plain text content from a document file."""
+    ext = extension.lower()
+    try:
+        if ext == ".pdf":
+            doc = fitz.open(file_path)
+            text = "\n".join(page.get_text() for page in doc)
+            doc.close()
+            return text
+        elif ext == ".docx":
+            doc = DocxDocument(file_path)
+            parts = [para.text for para in doc.paragraphs]
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        parts.append(cell.text)
+            return "\n".join(parts)
+        elif ext in (".md", ".txt"):
+            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                return f.read()
+    except Exception:
+        return ""
+    return ""
+
+
 def remove_diacritics(s: str) -> str:
     nfkd = unicodedata.normalize('NFKD', s)
     return ''.join(c for c in nfkd if not unicodedata.combining(c))
@@ -114,6 +139,10 @@ async def api_documents(
     file_type: str = "",
     sort: str = "",
     page: int = 1,
+    doc_date_from: str = "",
+    doc_date_to: str = "",
+    upload_date_from: str = "",
+    upload_date_to: str = "",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -147,12 +176,34 @@ async def api_documents(
                 func.lower(Document.description).ilike(like),
                 func.lower(Document.notes).ilike(like),
                 func.lower(Document.hashtags).ilike(like),
+                func.lower(Document.content).ilike(like),
             )
         )
     if category:
         query = query.filter(Document.category == category)
     if file_type:
         query = query.filter(Document.file_extension == file_type)
+
+    if doc_date_from:
+        try:
+            query = query.filter(Document.document_date >= datetime.strptime(doc_date_from, "%Y-%m-%d"))
+        except ValueError:
+            pass
+    if doc_date_to:
+        try:
+            query = query.filter(Document.document_date <= datetime.strptime(doc_date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        except ValueError:
+            pass
+    if upload_date_from:
+        try:
+            query = query.filter(Document.uploaded_at >= datetime.strptime(upload_date_from, "%Y-%m-%d"))
+        except ValueError:
+            pass
+    if upload_date_to:
+        try:
+            query = query.filter(Document.uploaded_at <= datetime.strptime(upload_date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        except ValueError:
+            pass
 
     sort_map = {
         "upload_desc": Document.uploaded_at.desc(),
@@ -283,6 +334,8 @@ async def upload_document(
         except ValueError:
             pass
 
+    extracted_text = remove_diacritics(extract_text(str(file_path), ext).lower())
+
     doc = Document(
         filename=file_hash,
         original_filename=file.filename,
@@ -299,6 +352,7 @@ async def upload_document(
         is_private=is_private,
         uploaded_by=current_user.id,
         document_date=doc_date,
+        content=extracted_text,
     )
     db.add(doc)
     db.commit()
@@ -453,6 +507,11 @@ async def edit_document_metadata(
 
 
 # --- Settings routes ---
+
+@router.get("/help", response_class=HTMLResponse)
+async def help_page(request: Request, current_user: User = Depends(get_current_user)):
+    return templates.TemplateResponse("help.html", {"request": request, "user": current_user})
+
 
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
