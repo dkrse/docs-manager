@@ -69,3 +69,6 @@ INFO:     192.168.1.110:58986 - "GET /css/fonts/bootstrap-icons.woff?7141511ac37
 - vytvor claude.md
 
 - do dokumentacii pridaj autor: krse
+
+
+- do docs/price.md - analyzuj mozne ceny za tento produkt, analyzuj realne.
