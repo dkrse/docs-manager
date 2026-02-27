@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Document Manager{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4>Documents <span class="badge bg-secondary" id="totalBadge">0</span></h4>
+    {% if not user.is_admin %}
+    <a href="/upload" class="btn btn-primary btn-sm"><i class="bi bi-upload"></i> Upload</a>
+    {% endif %}
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-md-4">
+        <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search...">
+    </div>
+    <div class="col-md-2">
+        <select id="categoryFilter" class="form-select form-select-sm">
+            <option value="">All Categories</option>
+            {% for cat in categories %}
+            <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select id="fileTypeFilter" class="form-select form-select-sm">
+            <option value="">All Types</option>
+            <option value=".pdf">PDF</option>
+            <option value=".docx">DOCX</option>
+            <option value=".md">Markdown</option>
+            <option value=".txt">Text</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select id="sortFilter" class="form-select form-select-sm">
+            <option value="random" {% if default_sort == 'random' %}selected{% endif %}>Random</option>
+            <option value="upload_desc" {% if default_sort == 'upload_desc' %}selected{% endif %}>Upload (newest)</option>
+            <option value="upload_asc" {% if default_sort == 'upload_asc' %}selected{% endif %}>Upload (oldest)</option>
+            <option value="date_desc" {% if default_sort == 'date_desc' %}selected{% endif %}>Doc date (newest)</option>
+            <option value="date_asc" {% if default_sort == 'date_asc' %}selected{% endif %}>Doc date (oldest)</option>
+            <option value="size_desc" {% if default_sort == 'size_desc' %}selected{% endif %}>Size (largest)</option>
+            <option value="size_asc" {% if default_sort == 'size_asc' %}selected{% endif %}>Size (smallest)</option>
+        </select>
+    </div>
+</div>
+
+<div id="documentsGrid"></div>
+
+<nav class="mt-4" id="paginationNav" style="display:none;">
+    <ul class="pagination pagination-sm justify-content-center" id="pagination"></ul>
+</nav>
+
+<!-- Document View Modal -->
+<div class="modal fade" id="docModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="docModalTitle"></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-1 mb-2 small" id="docModalMeta"></div>
+                <iframe id="docModalPdf" width="100%" style="height:70vh; border:none;"></iframe>
+            </div>
+            <div class="modal-footer py-1">
+                <a id="docModalDownload" href="#" class="btn btn-sm btn-success"><i class="bi bi-download"></i> Download</a>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Metadata Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="editModalTitle">Edit Metadata</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editDocId">
+                <div class="mb-2">
+                    <label class="form-label small">Category</label>
+                    <input type="text" id="editCategory" class="form-control form-control-sm">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Hashtags (comma-separated)</label>
+                    <input type="text" id="editHashtags" class="form-control form-control-sm">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Description</label>
+                    <textarea id="editDescription" class="form-control form-control-sm" rows="2"></textarea>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Notes</label>
+                    <textarea id="editNotes" class="form-control form-control-sm" rows="2"></textarea>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Document Date</label>
+                    <input type="text" id="editDocDate" class="form-control form-control-sm" placeholder="Select date...">
+                </div>
+                <div class="mb-2 form-check">
+                    <input type="checkbox" id="editPrivate" class="form-check-input">
+                    <label class="form-check-label small" for="editPrivate">Private</label>
+                </div>
+            </div>
+            <div class="modal-footer py-1">
+                <div id="editSuccess" class="text-success small me-auto" style="display:none;">Saved!</div>
+                <button type="button" class="btn btn-sm btn-primary" onclick="saveMetadata()"><i class="bi bi-check-lg"></i> Save</button>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = 1;
+let searchTimer = null;
+let editFlatpickr = null;
+
+function formatSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function getParams() {
+    return {
+        search: document.getElementById('searchInput').value,
+        category: document.getElementById('categoryFilter').value,
+        file_type: document.getElementById('fileTypeFilter').value,
+        sort: document.getElementById('sortFilter').value,
+        page: currentPage,
+    };
+}
+
+function loadDocuments() {
+    const p = getParams();
+    const qs = new URLSearchParams(p).toString();
+    fetch('/api/documents?' + qs)
+        .then(r => r.json())
+        .then(data => renderDocuments(data));
+}
+
+function renderDocuments(data) {
+    const grid = document.getElementById('documentsGrid');
+    document.getElementById('totalBadge').textContent = data.total;
+
+    if (data.documents.length === 0) {
+        grid.innerHTML = `<div class="text-center text-muted py-5 w-100">
+            <i class="bi bi-folder2-open" style="font-size:3rem;"></i>
+            <p class="mt-2">No documents found</p></div>`;
+        document.getElementById('paginationNav').style.display = 'none';
+        return;
+    }
+
+    let html = '';
+    data.documents.forEach(doc => {
+        const privateBadge = doc.is_private ? `<span class="badge bg-warning text-dark badge-sm"><i class="bi bi-lock"></i></span>` : '';
+        const canDelete = data.is_admin || doc.uploaded_by === data.user_id;
+        const canEdit = data.is_admin || doc.uploaded_by === data.user_id;
+        const deleteBtn = canDelete ? `<form method="post" action="/document/${doc.id}/delete" class="d-inline" onsubmit="return confirm('Delete?')"><button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button></form>` : '';
+        const editBtn = canEdit ? `<button onclick="openEditModal(${doc.id})" class="btn btn-outline-warning btn-sm"><i class="bi bi-pencil"></i></button>` : '';
+        const iconMap = {'.pdf':'bi-file-earmark-pdf text-danger', '.md':'bi-file-earmark-text text-info', '.txt':'bi-file-earmark-text text-secondary', '.docx':'bi-file-earmark-word text-primary'};
+        const fileIcon = iconMap[doc.file_extension] || 'bi-file-earmark text-muted';
+        const thumbSrc = doc.has_thumbnail ? `/document/${doc.id}/thumbnail` : '';
+        const thumbImg = thumbSrc
+            ? `<img src="${thumbSrc}" class="doc-thumb-img" alt="Preview">`
+            : `<div class="doc-thumb-placeholder"><i class="bi ${fileIcon}"></i></div>`;
+        const fname = doc.original_filename.length > 18 ? doc.original_filename.substring(0, 16) + '...' : doc.original_filename;
+
+        html += `<div class="doc-tile-wrap">
+            <div class="doc-tile" title="${doc.original_filename}">
+                <a href="#" onclick="openDocModal(${doc.id}); return false;" class="text-decoration-none">
+                    ${thumbImg}
+                </a>
+                <div class="doc-tile-info">
+                    <div class="doc-tile-name">${fname} ${privateBadge}</div>
+                    <div class="doc-tile-meta">${doc.uploaded_at} | ${formatSize(doc.file_size)}</div>
+                </div>
+                <div class="doc-tile-actions">
+                    ${editBtn}
+                    <a href="/document/${doc.id}/download" class="btn btn-outline-success btn-sm"><i class="bi bi-download"></i></a>
+                    ${deleteBtn}
+                </div>
+            </div>
+        </div>`;
+    });
+    grid.innerHTML = html;
+
+    const nav = document.getElementById('paginationNav');
+    const pag = document.getElementById('pagination');
+    if (data.total_pages > 1) {
+        nav.style.display = '';
+        let ph = '';
+        ph += `<li class="page-item ${data.page <= 1 ? 'disabled' : ''}"><a class="page-link" href="#" onclick="goPage(${data.page-1}); return false;">&laquo;</a></li>`;
+        for (let i = 1; i <= data.total_pages; i++) {
+            ph += `<li class="page-item ${i === data.page ? 'active' : ''}"><a class="page-link" href="#" onclick="goPage(${i}); return false;">${i}</a></li>`;
+        }
+        ph += `<li class="page-item ${data.page >= data.total_pages ? 'disabled' : ''}"><a class="page-link" href="#" onclick="goPage(${data.page+1}); return false;">&raquo;</a></li>`;
+        pag.innerHTML = ph;
+    } else {
+        nav.style.display = 'none';
+    }
+}
+
+function goPage(p) {
+    currentPage = p;
+    loadDocuments();
+}
+
+function openDocModal(docId) {
+    fetch('/document/' + docId + '/info')
+        .then(r => r.json())
+        .then(info => {
+            document.getElementById('docModalTitle').textContent = info.original_filename;
+            const ext = (info.file_extension || '.pdf').toLowerCase();
+            if (ext === '.pdf') {
+                document.getElementById('docModalPdf').src = '/document/' + docId + '/pdf';
+            } else {
+                document.getElementById('docModalPdf').src = '/document/' + docId + '/render';
+            }
+            document.getElementById('docModalDownload').href = '/document/' + docId + '/download';
+            let meta = '';
+            if (info.description) meta += `<div class="col-12"><strong>Description:</strong> ${info.description}</div>`;
+            if (info.category) meta += `<div class="col-auto"><strong>Category:</strong> <span class="badge bg-info">${info.category}</span></div>`;
+            if (info.hashtags) {
+                const tags = info.hashtags.split(',').map(t => `<span class="badge bg-secondary me-1">#${t.trim()}</span>`).join('');
+                meta += `<div class="col-auto"><strong>Tags:</strong> ${tags}</div>`;
+            }
+            if (info.notes) meta += `<div class="col-12"><strong>Notes:</strong> ${info.notes}</div>`;
+            if (info.document_date) meta += `<div class="col-auto"><strong>Document Date:</strong> ${info.document_date}</div>`;
+            meta += `<div class="col-auto"><small class="text-muted">Uploaded by ${info.uploader_name} on ${info.uploaded_at} | ${formatSize(info.file_size)}</small></div>`;
+            if (info.is_private) meta += `<div class="col-auto"><span class="badge bg-warning text-dark">Private</span></div>`;
+            document.getElementById('docModalMeta').innerHTML = meta;
+            new bootstrap.Modal(document.getElementById('docModal')).show();
+        });
+}
+
+function openEditModal(docId) {
+    fetch('/document/' + docId + '/info')
+        .then(r => r.json())
+        .then(info => {
+            document.getElementById('editDocId').value = docId;
+            document.getElementById('editModalTitle').textContent = 'Edit: ' + info.original_filename;
+            document.getElementById('editCategory').value = info.category || '';
+            document.getElementById('editHashtags').value = info.hashtags || '';
+            document.getElementById('editDescription').value = info.description || '';
+            document.getElementById('editNotes').value = info.notes || '';
+            document.getElementById('editPrivate').checked = info.is_private;
+            document.getElementById('editSuccess').style.display = 'none';
+            if (editFlatpickr) editFlatpickr.destroy();
+            editFlatpickr = flatpickr('#editDocDate', { locale: 'sk', dateFormat: 'Y-m-d', allowInput: true, defaultDate: info.document_date || null });
+            new bootstrap.Modal(document.getElementById('editModal')).show();
+        });
+}
+
+function saveMetadata() {
+    const docId = document.getElementById('editDocId').value;
+    const formData = new FormData();
+    formData.append('category', document.getElementById('editCategory').value);
+    formData.append('hashtags', document.getElementById('editHashtags').value);
+    formData.append('description', document.getElementById('editDescription').value);
+    formData.append('notes', document.getElementById('editNotes').value);
+    formData.append('document_date', document.getElementById('editDocDate').value || '');
+    formData.append('is_private', document.getElementById('editPrivate').checked ? 'true' : 'false');
+    fetch('/document/' + docId + '/edit', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                document.getElementById('editSuccess').style.display = '';
+                setTimeout(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+                    loadDocuments();
+                }, 600);
+            }
+        });
+}
+
+// Live search with debounce
+document.getElementById('searchInput').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { currentPage = 1; loadDocuments(); }, 300);
+});
+['categoryFilter', 'fileTypeFilter', 'sortFilter'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => { currentPage = 1; loadDocuments(); });
+});
+
+document.getElementById('docModal').addEventListener('hidden.bs.modal', () => {
+    document.getElementById('docModalPdf').src = '';
+});
+
+loadDocuments();
+</script>
+{% endblock %}

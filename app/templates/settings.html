@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Settings - Document Manager{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <h4 class="mb-3"><i class="bi bi-gear"></i> Settings</h4>
+        {% if success %}<div class="alert alert-success">{{ success }}</div>{% endif %}
+        <form method="post" action="/settings">
+            <div class="mb-3">
+                <label class="form-label">Theme</label>
+                <select name="theme" class="form-select">
+                    <option value="light" {% if settings.theme == 'light' or not settings.theme %}selected{% endif %}>Light</option>
+                    <option value="dark" {% if settings.theme == 'dark' %}selected{% endif %}>Dark</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Documents per page</label>
+                <input type="number" name="page_size" class="form-control" value="{{ settings.page_size }}" min="5" max="100">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Default sort</label>
+                <select name="default_sort" class="form-select">
+                    <option value="random" {% if settings.default_sort == 'random' %}selected{% endif %}>Random</option>
+                    <option value="upload_desc" {% if settings.default_sort == 'upload_desc' %}selected{% endif %}>Upload (newest)</option>
+                    <option value="upload_asc" {% if settings.default_sort == 'upload_asc' %}selected{% endif %}>Upload (oldest)</option>
+                    <option value="date_desc" {% if settings.default_sort == 'date_desc' %}selected{% endif %}>Doc date (newest)</option>
+                    <option value="date_asc" {% if settings.default_sort == 'date_asc' %}selected{% endif %}>Doc date (oldest)</option>
+                    <option value="size_desc" {% if settings.default_sort == 'size_desc' %}selected{% endif %}>Size (largest)</option>
+                    <option value="size_asc" {% if settings.default_sort == 'size_asc' %}selected{% endif %}>Size (smallest)</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Hidden hashtags</label>
+                <input type="text" name="hidden_hashtags" class="form-control" value="{{ settings.hidden_hashtags or '' }}" placeholder="e.g. archive, draft, private">
+                <div class="form-text">Comma-separated hashtags. Documents with these hashtags will be hidden. Leave empty to show all.</div>
+            </div>
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a href="/" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

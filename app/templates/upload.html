@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Upload - Document Manager{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h4 class="mb-3">Upload Document</h4>
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        <form method="post" action="/upload" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label class="form-label">File</label>
+                <input type="file" name="file" class="form-control" accept=".pdf,.md,.txt,.docx" required id="docFile">
+                <div class="form-text">Supported: PDF, Markdown (.md), Text (.txt), Word (.docx)</div>
+            </div>
+            <div class="mb-3" id="thumbPageGroup">
+                <label class="form-label">Thumbnail Page</label>
+                <input type="number" name="thumbnail_page" class="form-control" value="1" min="1" id="thumbPage">
+                <div class="form-text">Page number to use as document thumbnail preview (PDF only).</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Category</label>
+                <input type="text" name="category" class="form-control" placeholder="e.g. Invoice, Report, Contract">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Hashtags (comma-separated)</label>
+                <input type="text" name="hashtags" class="form-control" placeholder="e.g. finance, 2024, quarterly">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea name="description" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Notes</label>
+                <textarea name="notes" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Document Date</label>
+                <input type="text" name="document_date" class="form-control" id="documentDate" placeholder="Select date...">
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" name="is_private" value="true" class="form-check-input" id="privateCheck">
+                <label class="form-check-label" for="privateCheck">Private (only you and admins can see)</label>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i> Upload</button>
+            <a href="/" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+flatpickr("#documentDate", {
+    locale: "sk",
+    dateFormat: "Y-m-d",
+    allowInput: true
+});
+document.getElementById('docFile').addEventListener('change', function() {
+    const name = this.value.toLowerCase();
+    const isPdf = name.endsWith('.pdf');
+    document.getElementById('thumbPageGroup').style.display = isPdf ? '' : 'none';
+});
+</script>
+{% endblock %}
