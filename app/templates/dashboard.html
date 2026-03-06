@@ -287,7 +287,7 @@ function openEditModal(docId) {
             document.getElementById('editPrivate').checked = info.is_private;
             document.getElementById('editSuccess').style.display = 'none';
             if (editFlatpickr) editFlatpickr.destroy();
-            editFlatpickr = flatpickr('#editDocDate', { locale: 'sk', dateFormat: 'Y-m-d', allowInput: true, defaultDate: info.document_date || null });
+            editFlatpickr = flatpickr('#editDocDate', { dateFormat: 'Y-m-d', allowInput: true, defaultDate: info.document_date || null });
             new bootstrap.Modal(document.getElementById('editModal')).show();
         });
 }
@@ -324,7 +324,7 @@ document.getElementById('searchInput').addEventListener('input', () => {
 });
 
 // Init flatpickr on date filter inputs (Slovak locale)
-const fpOpts = { locale: 'sk', dateFormat: 'Y-m-d', allowInput: true, allowClear: true, onChange: () => { currentPage = 1; loadDocuments(); } };
+const fpOpts = { dateFormat: 'Y-m-d', allowInput: true, allowClear: true, onChange: () => { currentPage = 1; loadDocuments(); } };
 flatpickr('#docDateFrom', fpOpts);
 flatpickr('#docDateTo', fpOpts);
 flatpickr('#uploadDateFrom', fpOpts);

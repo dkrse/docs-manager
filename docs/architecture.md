@@ -48,7 +48,7 @@ Document Manager is a FastAPI web application for managing documents (PDF, DOCX,
 │   │   └── change_password.html
 │   └── static/
 │       ├── css/              # Bootstrap, Bootstrap Icons, Flatpickr, custom
-│       ├── js/               # Bootstrap, Flatpickr + SK locale
+│       ├── js/               # Bootstrap, Flatpickr
 │       └── fonts/            # Bootstrap Icons woff/woff2
 ├── uploads/                  # Document storage (SHA-256 hash filenames)
 │   └── thumbnails/           # PDF page thumbnails (PNG)

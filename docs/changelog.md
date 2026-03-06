@@ -8,7 +8,7 @@
 - Search inside document content (PDF, DOCX, MD, TXT), not just metadata
 - Text extracted on upload via `extract_text()` helper using PyMuPDF, python-docx, and file read
 - Content stored normalized (lowercase, no diacritics) in `Document.content` column
-- Diacritics-insensitive — e.g. searching "faktura" finds "Faktúra" inside documents
+- Diacritics-insensitive — e.g. searching "resume" finds "Résumé" inside documents
 - Existing documents backfilled automatically on startup
 
 ### Help Manual
@@ -63,7 +63,7 @@
 - File type icons: PDF (red), DOCX (blue), MD (cyan), TXT (gray)
 - Light/dark theme (Bootstrap 5.3 data-bs-theme, per-user setting)
 - All assets local (works offline) - Bootstrap CSS/JS, Icons, Flatpickr
-- Slovak-localized date picker (Flatpickr)
+- Date picker (Flatpickr)
 
 ### User Settings
 - Documents per page (5-100)

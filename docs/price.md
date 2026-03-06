@@ -4,107 +4,107 @@
 
 ## Overview
 
-Analýza reálnych cenových modelov pre Document Manager na základe prieskumu trhu DMS (Document Management System) riešení v roku 2025/2026.
+Analysis of realistic pricing models for Document Manager based on a 2025/2026 market survey of DMS (Document Management System) solutions.
 
-## Trhový kontext
+## Market Context
 
-| Segment | Typická cena | Príklady |
-|---------|-------------|----------|
-| Open-source / self-hosted | €0 (len hosting) | Paperless-ngx, Mayan EDMS, SeedDMS |
-| SaaS - basic | €10–20 / používateľ / mesiac | ContractZen (€9.50), Xodo (~€13) |
-| SaaS - mid-range | €20–50 / používateľ / mesiac | Fluix (€30), M-Files (€39–59) |
-| SaaS - enterprise | €50–150+ / používateľ / mesiac | M-Files, OpenText, DocuWare |
-| On-premise licencia | €5 000–50 000+ jednorazovo | Alfresco Enterprise, OpenKM Pro |
+| Segment | Typical Price | Examples |
+|---------|--------------|----------|
+| Open-source / self-hosted | $0 (hosting only) | Paperless-ngx, Mayan EDMS, SeedDMS |
+| SaaS - basic | $10-20 / user / month | ContractZen ($9.50), Xodo (~$13) |
+| SaaS - mid-range | $20-50 / user / month | Fluix ($30), M-Files ($39-59) |
+| SaaS - enterprise | $50-150+ / user / month | M-Files, OpenText, DocuWare |
+| On-premise license | $5,000-50,000+ one-time | Alfresco Enterprise, OpenKM Pro |
 
-Cloud riešenia tvoria 67%+ trhu. Priemerná mesačná cena za DMS je €40–300/mesiac podľa počtu používateľov a funkcií.
+Cloud solutions make up 67%+ of the market. Average monthly cost for a DMS is $40-300/month depending on the number of users and features.
 
-## Porovnanie s konkurenciou
+## Comparison with Competitors
 
-### Čo Document Manager ponúka
-- Multi-formát (PDF, DOCX, MD, TXT) s in-browser prehliadaním
-- Deduplikácia (SHA-256)
-- Metadata, kategórie, hashtagy
-- Live vyhľadávanie (diacritics-insensitive)
-- Light/dark téma
+### What Document Manager Offers
+- Multi-format (PDF, DOCX, MD, TXT) with in-browser viewing
+- Deduplication (SHA-256)
+- Metadata, categories, hashtags
+- Live search (diacritics-insensitive)
+- Light/dark theme
 - Docker deployment
-- Self-hosted (žiadne mesačné poplatky za cloud)
+- Self-hosted (no monthly cloud fees)
 
-### Čo chýba oproti enterprise riešeniam
-- OCR (rozpoznávanie textu z obrázkov/skenov)
-- Workflow / schvaľovanie dokumentov
-- Verzionovanie dokumentov
-- Full-text search (obsah súborov)
-- API pre externé integrácie (REST API je čiastočne)
+### What's Missing Compared to Enterprise Solutions
+- OCR (text recognition from images/scans)
+- Workflow / document approval
+- Document versioning
+- Full-text search (file contents)
+- API for external integrations (REST API is partial)
 - Audit log
-- Multi-tenant architektúra
-- S3/object storage podpora
+- Multi-tenant architecture
+- S3/object storage support
 
-## Navrhované cenové modely
+## Proposed Pricing Models
 
-### Model A: Open-source + platená podpora
+### Model A: Open-source + Paid Support
 
-| Tier | Cena | Čo zahŕňa |
-|------|-------|-----------|
-| Community | €0 | Plná aplikácia, self-hosted, bez podpory |
-| Support | €50/mesiac | Email podpora, prioritné bugfixy |
-| Enterprise | €200/mesiac | Podpora + OCR + audit log + SLA |
+| Tier | Price | Includes |
+|------|-------|----------|
+| Community | $0 | Full application, self-hosted, no support |
+| Support | $50/month | Email support, priority bug fixes |
+| Enterprise | $200/month | Support + OCR + audit log + SLA |
 
-**Pre koho:** Vývojári, malé firmy, ktoré si vedia nasadiť Docker sami.
+**Target audience:** Developers, small businesses that can deploy Docker themselves.
 
-### Model B: SaaS (hosted)
+### Model B: SaaS (Hosted)
 
-| Tier | Cena | Limity |
+| Tier | Price | Limits |
 |------|-------|--------|
-| Starter | €8/používateľ/mesiac | 5 GB storage, 3 používatelia |
-| Business | €15/používateľ/mesiac | 50 GB storage, neobmedzení používatelia |
-| Enterprise | €30/používateľ/mesiac | Neobmedzený storage, OCR, audit log, SLA |
+| Starter | $8/user/month | 5 GB storage, 3 users |
+| Business | $15/user/month | 50 GB storage, unlimited users |
+| Enterprise | $30/user/month | Unlimited storage, OCR, audit log, SLA |
 
-**Pre koho:** Firmy, ktoré nechcú spravovať infraštruktúru.
+**Target audience:** Companies that don't want to manage infrastructure.
 
-### Model C: Jednorazová licencia (self-hosted)
+### Model C: One-time License (Self-hosted)
 
-| Tier | Cena | Čo zahŕňa |
-|------|-------|-----------|
-| Personal | €0 | 1 používateľ, plné funkcie |
-| Team | €199 jednorazovo | Do 10 používateľov |
-| Business | €499 jednorazovo | Neobmedzení používatelia |
-| Enterprise | €999+ jednorazovo | + OCR, audit log, 1 rok support |
+| Tier | Price | Includes |
+|------|-------|----------|
+| Personal | $0 | 1 user, full features |
+| Team | $199 one-time | Up to 10 users |
+| Business | $499 one-time | Unlimited users |
+| Enterprise | $999+ one-time | + OCR, audit log, 1 year support |
 
-**Pre koho:** Firmy, ktoré preferujú jednorazový nákup.
+**Target audience:** Companies that prefer a one-time purchase.
 
-## Realistické odporúčanie
+## Realistic Recommendation
 
-Vzhľadom na aktuálny stav produktu (funkčný, ale bez OCR, verzionovania, audit logu):
+Given the current state of the product (functional, but without OCR, versioning, audit log):
 
-### Najreálnejšia cena
+### Most Realistic Price
 
-| Scenár | Cena | Zdôvodnenie |
-|--------|-------|------------|
-| **Self-hosted licencia** | **€99–299 jednorazovo** | Jednoduchý DMS pre malý tím (2–10 ľudí). Porovnateľné s lacnými komerčnými riešeniami, ale bez mesačných poplatkov. |
-| **SaaS hosted** | **€8–12/používateľ/mesiac** | Dolná hranica trhu. Produkt pokrýva základné potreby, ale chýbajú enterprise funkcie. |
-| **Open-source + support** | **€0 + €50/mesiac za podporu** | Najlepší model pre budovanie komunity. |
+| Scenario | Price | Justification |
+|----------|-------|---------------|
+| **Self-hosted license** | **$99-299 one-time** | Simple DMS for a small team (2-10 people). Comparable to inexpensive commercial solutions, but without monthly fees. |
+| **SaaS hosted** | **$8-12/user/month** | Lower end of the market. The product covers basic needs, but lacks enterprise features. |
+| **Open-source + support** | **$0 + $50/month for support** | Best model for building a community. |
 
-### Cena za hodinu vývoja (ak predávame ako službu)
+### Development Cost (if Sold as a Service)
 
-| Položka | Odhad |
-|---------|-------|
-| Celkový čas vývoja | ~40–60 hodín |
-| Hodinová sadzba (SK trh) | €30–60/h |
-| **Celková hodnota vývoja** | **€1 200–3 600** |
-| Break-even pri €99/licencia | 12–36 predajov |
-| Break-even pri SaaS €10/user/mes | 10 používateľov × 12–36 mesiacov |
+| Item | Estimate |
+|------|----------|
+| Total development time | ~40-60 hours |
+| Hourly rate (market average) | $30-60/h |
+| **Total development value** | **$1,200-3,600** |
+| Break-even at $99/license | 12-36 sales |
+| Break-even at SaaS $10/user/month | 10 users x 12-36 months |
 
-## Záver
+## Conclusion
 
-Najvhodnejší model závisí od cieľovej skupiny:
+The most suitable model depends on the target audience:
 
-1. **Pre komunitu/freelancerov** → Open-source (budovanie reputácie, upsell support)
-2. **Pre malé firmy (SK/CZ trh)** → Jednorazová licencia €99–299
-3. **Pre širší trh** → SaaS za €8–15/používateľ/mesiac (vyžaduje hosting infraštruktúru)
+1. **For community/freelancers** - Open-source (building reputation, upsell support)
+2. **For small businesses** - One-time license $99-299
+3. **For broader market** - SaaS at $8-15/user/month (requires hosting infrastructure)
 
-Pre zvýšenie hodnoty a oprávnenie vyššej ceny by bolo potrebné pridať: OCR, verzionovanie, full-text search, audit log.
+To increase value and justify a higher price, the following features would need to be added: OCR, versioning, full-text search, audit log.
 
-## Zdroje
+## Sources
 
 - [Document Management Software Costs & Prices 2025](https://www.bitfarm-archiv.com/document-management/glossary/document-management-system-software-cost-price.html)
 - [How Much Does Document Management Software Cost in 2025](https://priceithere.com/document-management-software-prices/)
