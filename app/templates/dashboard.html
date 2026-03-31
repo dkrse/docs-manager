@@ -39,6 +39,8 @@
                     <option value="">All</option>
                     <option value=".pdf">PDF</option>
                     <option value=".docx">DOCX</option>
+                    <option value=".xlsx">XLSX</option>
+                    <option value=".csv">CSV</option>
                     <option value=".md">MD</option>
                     <option value=".txt">TXT</option>
                 </select>
@@ -183,8 +185,8 @@
                 <form id="uploadForm">
                     <div class="mb-2">
                         <label class="form-label small">Files</label>
-                        <input type="file" name="file" class="form-control form-control-sm" accept=".pdf,.md,.txt,.docx" required id="uploadFile" multiple>
-                        <div class="form-text">PDF, Markdown, Text, Word. Multiple files allowed.</div>
+                        <input type="file" name="file" class="form-control form-control-sm" accept=".pdf,.md,.txt,.docx,.xlsx,.csv" required id="uploadFile" multiple>
+                        <div class="form-text">PDF, DOCX, XLSX, CSV, MD, TXT. Multiple files allowed.</div>
                     </div>
                     <div class="mb-2" id="uploadThumbGroup">
                         <label class="form-label small">Thumbnail Page (PDF)</label>
@@ -308,6 +310,12 @@
                 <div class="mb-1 form-check">
                     <input type="checkbox" id="settingsShowDelete" class="form-check-input" checked>
                     <label class="form-check-label small" for="settingsShowDelete"><i class="bi bi-trash"></i> Delete</label>
+                </div>
+                <hr>
+                <label class="form-label small fw-bold">List view</label>
+                <div class="mb-1 form-check">
+                    <input type="checkbox" id="settingsShowLineNumbers" class="form-check-input">
+                    <label class="form-check-label small" for="settingsShowLineNumbers"><i class="bi bi-list-ol"></i> Show row numbers</label>
                 </div>
             </div>
             <div class="modal-footer py-1">
@@ -472,18 +480,21 @@ function renderDocuments(data) {
             return listSortAsc ? ' <i class="bi bi-caret-up-fill small"></i>' : ' <i class="bi bi-caret-down-fill small"></i>';
         };
         const sh = (col, label, w) => `<th style="width:${w};cursor:pointer;user-select:none;" onclick="sortListBy('${col}')">${label}${sortIcon(col)}</th>`;
+        const showNums = data.show_line_numbers;
+        const baseIdx = (data.page - 1) * data.page_size;
         html += `<table class="table table-sm table-hover align-middle mb-0">
             <thead><tr>
                 <th style="width:30px;"><input type="checkbox" id="bulkCheckAll" onchange="toggleAllChecks(this)"></th>
+                ${showNums ? '<th style="width:40px;" class="text-muted">#</th>' : ''}
                 <th style="width:30px;"></th>
                 ${sh('name','Name','')}
                 ${sh('type','Type','80px')}
                 ${sh('size','Size','90px')}
-                ${sh('created','Created','110px')}
+                ${sh('created','Created','140px')}
                 ${sh('modified','Modified','140px')}
                 <th style="width:140px;">Actions</th>
             </tr></thead><tbody>`;
-        data.documents.forEach(doc => {
+        data.documents.forEach((doc, i) => {
             const canDelete = data.show_delete && (data.is_admin || doc.uploaded_by === data.user_id);
             const canEdit = data.show_edit && (data.is_admin || doc.uploaded_by === data.user_id);
             const deleteBtn = canDelete ? `<form method="post" action="/document/${doc.id}/delete" class="d-inline" onsubmit="return confirm('Delete?')"><button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button></form>` : '';
@@ -495,6 +506,7 @@ function renderDocuments(data) {
             const ext = (doc.file_extension || '').replace('.','').toUpperCase();
             html += `<tr>
                 <td><input type="checkbox" class="bulk-check" data-id="${doc.id}" onchange="updateBulkBar()"></td>
+                ${showNums ? `<td class="text-muted small">${baseIdx + i + 1}</td>` : ''}
                 <td><button class="btn btn-sm p-0 border-0 fav-btn-list ${favClass}" onclick="toggleFavorite(${doc.id}, this)"><i class="bi ${favIcon}"></i></button></td>
                 <td><a href="#" onclick="openDocModal(${doc.id}); return false;" class="text-decoration-none">${doc.original_filename}</a>${privateBadge}</td>
                 <td><span class="badge bg-secondary">${ext}</span></td>
@@ -516,7 +528,7 @@ function renderDocuments(data) {
             const favClass = doc.is_favorite ? 'active' : '';
             const favIcon = doc.is_favorite ? 'bi-star-fill' : 'bi-star';
             const favBtn = `<button class="fav-btn ${favClass}" onclick="toggleFavorite(${doc.id}, this); event.stopPropagation();"><i class="bi ${favIcon}"></i></button>`;
-            const iconMap = {'.pdf':'bi-file-earmark-pdf text-danger', '.md':'bi-file-earmark-text text-info', '.txt':'bi-file-earmark-text text-secondary', '.docx':'bi-file-earmark-word text-primary'};
+            const iconMap = {'.pdf':'bi-file-earmark-pdf text-danger', '.md':'bi-file-earmark-text text-info', '.txt':'bi-file-earmark-text text-secondary', '.docx':'bi-file-earmark-word text-primary', '.xlsx':'bi-file-earmark-excel text-success', '.csv':'bi-file-earmark-spreadsheet text-success'};
             const fileIcon = iconMap[doc.file_extension] || 'bi-file-earmark text-muted';
             const thumbSrc = doc.has_thumbnail ? `/document/${doc.id}/thumbnail` : '';
             const thumbImg = thumbSrc
@@ -801,6 +813,7 @@ document.getElementById('settingsModal').addEventListener('shown.bs.modal', () =
         document.getElementById('settingsShowEdit').checked = s.show_edit;
         document.getElementById('settingsShowDownload').checked = s.show_download;
         document.getElementById('settingsShowDelete').checked = s.show_delete;
+        document.getElementById('settingsShowLineNumbers').checked = s.show_line_numbers;
     });
 });
 
@@ -813,6 +826,7 @@ function saveSettings() {
     formData.append('show_edit', document.getElementById('settingsShowEdit').checked ? 'true' : 'false');
     formData.append('show_download', document.getElementById('settingsShowDownload').checked ? 'true' : 'false');
     formData.append('show_delete', document.getElementById('settingsShowDelete').checked ? 'true' : 'false');
+    formData.append('show_line_numbers', document.getElementById('settingsShowLineNumbers').checked ? 'true' : 'false');
     fetch('/api/settings', { method: 'POST', body: formData })
         .then(r => r.json())
         .then(data => {

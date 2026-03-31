@@ -42,6 +42,8 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optiona
     user = db.query(User).filter(User.username == username).first()
     if user is None:
         raise HTTPException(status_code=302, headers={"Location": "/login"})
+    if user.must_change_password and request.url.path not in ("/change-password", "/api/change-password", "/logout"):
+        raise HTTPException(status_code=302, headers={"Location": "/change-password"})
     return user
 
 

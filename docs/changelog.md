@@ -2,6 +2,39 @@
 
 **Author:** krse
 
+## v2.1.0 - Security Hardening, XLSX/CSV Support & Fixes
+
+### New File Format Support
+- **XLSX** (Excel) — rendered as HTML tables (one per sheet), full-text search in cell content
+- **CSV** — rendered as HTML table, full-text search in content
+- New file type icons and filter options for XLSX and CSV
+
+### Security Hardening
+- **Secrets moved to `.env` file** — DATABASE_URL and SECRET_KEY no longer hardcoded in source
+- **CSRF protection** — origin/referer-based middleware blocks cross-origin POST requests
+- **XSS prevention** — all DOCX/XLSX/CSV/Markdown output HTML-escaped; script/iframe tags stripped
+- **LIKE injection prevention** — SQL wildcards (`%`, `_`) escaped in all search and filter queries
+- **Login rate limiting** — max 5 failed attempts per IP per 5 minutes
+- **Path traversal protection** — all file operations validated against UPLOAD_DIR
+- **Forced password change** — default admin must change password on first login
+- **Secure cookie flag** — auto-set when HTTPS detected
+- **Password policy** — minimum increased to 8 characters
+- **Streaming upload** — files streamed to temp file (not loaded into RAM), with configurable MAX_UPLOAD_SIZE
+- **Bulk operation limits** — capped at 200 items per request
+- **Bulk ZIP cleanup** — temp files deleted after response via background task
+- **User deletion cascade** — deleting a user removes their documents, files, favorites, and settings
+- **DB connection pool** — configured with pool_pre_ping, pool_size, max_overflow
+- **Dockerfile** — uploads directory permissions tightened from 777 to 755
+
+### Other Improvements
+- List view Created column now shows date and time
+- List view row numbers option in Settings
+- Local timezone support (TZ environment variable)
+- N+1 query optimization — batch user lookups and bulk operations use IN() queries
+- `.env` file support in docker-compose.yml
+
+---
+
 ## v2.0.0 - Major UI Overhaul & New Features
 
 ### Grid / List View

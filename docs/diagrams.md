@@ -36,6 +36,7 @@ erDiagram
         varchar username UK
         varchar hashed_password
         boolean is_admin
+        boolean must_change_password
         datetime created_at
     }
 
@@ -49,6 +50,7 @@ erDiagram
         boolean show_edit
         boolean show_download
         boolean show_delete
+        boolean show_line_numbers
     }
 
     documents {

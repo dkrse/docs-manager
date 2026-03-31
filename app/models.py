@@ -11,6 +11,7 @@ class User(Base):
     username = Column(String(100), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False)
+    must_change_password = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     documents = relationship("Document", back_populates="uploader")
@@ -29,6 +30,7 @@ class UserSettings(Base):
     show_edit = Column(Boolean, default=True)
     show_download = Column(Boolean, default=True)
     show_delete = Column(Boolean, default=True)
+    show_line_numbers = Column(Boolean, default=False)
 
     user = relationship("User", back_populates="settings")
 

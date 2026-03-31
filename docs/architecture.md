@@ -4,7 +4,7 @@
 
 ## Overview
 
-Document Manager is a FastAPI web application for managing documents (PDF, DOCX, Markdown, TXT) with user authentication, metadata management, search/filter, and a tile-based UI.
+Document Manager is a FastAPI web application for managing documents (PDF, DOCX, XLSX, CSV, Markdown, TXT) with user authentication, metadata management, search/filter, and a grid/list UI.
 
 ## Tech Stack
 
@@ -18,8 +18,10 @@ Document Manager is a FastAPI web application for managing documents (PDF, DOCX,
 | Templates | Jinja2 + Bootstrap 5.3 |
 | PDF processing | PyMuPDF (thumbnail generation, text extraction) |
 | DOCX processing | python-docx (HTML rendering) |
+| XLSX processing | openpyxl (table rendering, text extraction) |
+| CSV processing | csv stdlib (table rendering, text extraction) |
 | Markdown | markdown (HTML rendering) |
-| Deployment | Docker / Docker Compose |
+| Deployment | Docker / Docker Compose with `.env` |
 
 ## Project Structure
 
@@ -57,6 +59,7 @@ Document Manager is a FastAPI web application for managing documents (PDF, DOCX,
 ├── run.py                    # Uvicorn entry point
 ├── Dockerfile
 ├── docker-compose.yml
+├── .env                   # Environment variables (not in git)
 └── CLAUDE.md
 ```
 
@@ -70,11 +73,13 @@ Documents are stored on disk using their **SHA-256 content hash** as filename (n
 ## Authentication Flow
 
 1. User submits credentials to `/login`
-2. Server validates, creates JWT token
-3. Token stored in httponly cookie (`access_token`)
-4. Theme preference stored in regular cookie (`theme`)
-5. All protected routes use `get_current_user` dependency
-6. On failure, redirect to `/login`
+2. Rate limiter checks: max 5 failed attempts per IP per 5 minutes
+3. Server validates, creates JWT token
+4. Token stored in httponly cookie (`access_token`, `secure` flag on HTTPS)
+5. Theme preference stored in regular cookie (`theme`)
+6. All protected routes use `get_current_user` dependency
+7. If `must_change_password` flag set, user is redirected to change password
+8. On failure, redirect to `/login`
 
 ## Access Control
 
@@ -93,7 +98,8 @@ Private documents are visible only to uploader and admin.
 - Searches across: filename, description, notes, hashtags, **document content**
 - Content extracted on upload via `extract_text()` helper, stored normalized (lowercase, no diacritics) in `Document.content` column
 - Existing documents backfilled on startup
-- Filters: category, file type (.pdf/.docx/.md/.txt)
+- LIKE wildcard characters (`%`, `_`) escaped in search queries
+- Filters: category, file type (.pdf/.docx/.xlsx/.csv/.md/.txt)
 - Sort: random (default), upload date, document date, file size, name, type, modified
 - List view column sorting: name, type, size, created, modified (server-side, stable across pages)
 
@@ -112,8 +118,11 @@ Per-user preferences stored in `user_settings` table:
 - **Markdown**: rendered to HTML via Python `markdown` library
 - **TXT**: displayed in `<pre>` tag with word-wrap
 - **DOCX**: converted to HTML via `python-docx` (headings, formatting, tables)
+- **XLSX**: rendered as HTML tables (one per sheet) via `openpyxl`
+- **CSV**: rendered as HTML table via `csv` stdlib
 - **Open in new tab**: full-page document view via hash-based URL
 - Document URLs use daily-rotating HMAC hashes (not sequential IDs)
+- All rendered output sanitized against XSS (HTML escaped, script tags stripped)
 
 ## Favorites
 
@@ -154,3 +163,19 @@ Per-user preferences stored in `user_settings` table:
   - Filename and file type
   - First matching line with search term highlighted
   - Field where match was found (content, filename, description, etc.)
+
+## Security
+
+- **Configuration**: secrets (DATABASE_URL, SECRET_KEY) loaded from `.env` file, never hardcoded
+- **CSRF**: origin/referer-based middleware blocks cross-origin state-changing requests
+- **XSS**: all rendered content (DOCX, Markdown, XLSX, CSV) HTML-escaped; script/iframe tags stripped
+- **LIKE injection**: SQL wildcard characters (`%`, `_`) escaped in all ILIKE queries
+- **Upload limits**: streaming upload with configurable MAX_UPLOAD_SIZE (default 100MB)
+- **Path traversal**: all file operations validated against UPLOAD_DIR
+- **Rate limiting**: login limited to 5 failed attempts per IP per 5 minutes
+- **Password policy**: minimum 8 characters; default admin forced to change on first login
+- **Auth cookie**: `httponly`, `samesite=lax`, `secure` flag auto-set on HTTPS
+- **Bulk limits**: bulk delete/zip capped at 200 documents per request
+- **User deletion**: cascades to documents, files on disk, favorites, and settings
+- **Temp files**: bulk ZIP temp files cleaned up via background task after response
+- **DB pool**: configured with `pool_pre_ping=True` to handle stale connections

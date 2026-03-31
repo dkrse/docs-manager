@@ -1,9 +1,10 @@
+import os
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import User
+from app.models import User, Document, UserSettings, Favorite
 from app.auth import require_admin, hash_password
 
 router = APIRouter(prefix="/admin")
@@ -43,6 +44,18 @@ async def add_user(
 async def delete_user(user_id: int, current_user: User = Depends(require_admin), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if user and user.id != current_user.id:
+        # Delete user's favorites
+        db.query(Favorite).filter(Favorite.user_id == user.id).delete()
+        # Delete user's documents and files
+        docs = db.query(Document).filter(Document.uploaded_by == user.id).all()
+        for doc in docs:
+            if os.path.exists(doc.file_path):
+                os.remove(doc.file_path)
+            if doc.thumbnail_path and os.path.exists(doc.thumbnail_path):
+                os.remove(doc.thumbnail_path)
+            db.delete(doc)
+        # Delete user settings
+        db.query(UserSettings).filter(UserSettings.user_id == user.id).delete()
         db.delete(user)
         db.commit()
     return RedirectResponse(url="/admin/users", status_code=302)

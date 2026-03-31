@@ -3,7 +3,7 @@
 **Author:** krse
 **License:** MIT
 
-Web application for managing PDF, DOCX, Markdown, and Text documents with user authentication, metadata, search/filter, and tile-based UI.
+Web application for managing PDF, DOCX, XLSX, CSV, Markdown, and Text documents with user authentication, metadata, search/filter, and grid/list UI.
 
 ## License
 
@@ -33,6 +33,13 @@ SOFTWARE.
 
 ### Docker (recommended)
 
+1. Copy `.env.example` to `.env` and set your values:
+```bash
+cp .env.example .env
+# Edit .env with your DATABASE_URL, SECRET_KEY, etc.
+```
+
+2. Start:
 ```bash
 docker compose up -d --build
 ```
@@ -45,6 +52,9 @@ App runs at http://localhost:5214
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+# Set environment variables (or create .env file)
+export DATABASE_URL=postgresql://user:pass@host/dbname
+export SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
 python run.py
 ```
 
@@ -55,27 +65,31 @@ RELOAD=true python run.py
 
 ## Configuration
 
-Environment variables (or defaults in `app/config.py`):
+All configuration is via environment variables (loaded from `.env` file by Docker Compose):
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `postgresql://postgres:dexxxx1@192.168.1.189/documents` | PostgreSQL connection |
-| `SECRET_KEY` | (hardcoded) | JWT signing key |
-| `UPLOAD_DIR` | `/opt/apps/document-manager/uploads` | File storage path |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `480` | Session duration |
-| `RELOAD` | `false` | Enable uvicorn auto-reload |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | **Yes** | — | PostgreSQL connection string |
+| `SECRET_KEY` | **Yes** | auto-generated | JWT signing key (must be set for persistent sessions) |
+| `UPLOAD_DIR` | No | `/opt/apps/document-manager/uploads` | File storage path |
+| `MAX_UPLOAD_SIZE` | No | `104857600` (100MB) | Maximum upload file size in bytes |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | `480` | Session duration |
+| `TZ` | No | `UTC` | Container timezone (e.g. `Europe/Bratislava`) |
+| `RELOAD` | No | `false` | Enable uvicorn auto-reload |
+
+**Never commit `.env` to git** — it is in `.gitignore`.
 
 ## Default Login
 
 - **Username:** `admin`
 - **Password:** `admin`
 
-Admin account is created automatically on first startup.
+Admin account is created automatically on first startup. You will be forced to change the password on first login.
 
 ## Features
 
-- **Multi-format support**: PDF, DOCX, Markdown, TXT
-- **In-browser viewing**: PDF viewer, Markdown/DOCX/TXT renderers
+- **Multi-format support**: PDF, DOCX, XLSX, CSV, Markdown, TXT
+- **In-browser viewing**: PDF viewer, XLSX/CSV table renderer, Markdown/DOCX/TXT renderers
 - **Grid/List view**: toggle between thumbnail grid and detailed sortable table view
 - **Full-text search**: searches inside document content (PDF, DOCX, MD, TXT)
 - **Search context**: detail button shows first matching line per document with highlighting
@@ -93,16 +107,16 @@ Admin account is created automatically on first startup.
 - **Modal-based UI**: upload, settings, change password all in modals on dashboard
 - **Secure document URLs**: daily-rotating hash-based URLs for document viewing
 - **Access control**: admin/user roles, private documents
+- **Security**: CSRF protection, XSS sanitization, LIKE injection prevention, rate-limited login, streaming uploads with size limits, path traversal protection, forced password change for default admin
 - **Offline**: all CSS/JS/fonts served locally
 - **Help manual**: in-app user guide accessible via navbar
-- **Docker ready**: Dockerfile + docker-compose.yml
+- **Docker ready**: Dockerfile + docker-compose.yml with `.env` file support
 
 ## Documentation
 
 - [Architecture](docs/architecture.md)
 - [Diagrams](docs/diagrams.md)
 - [Changelog](docs/changelog.md)
-- [Pricing Analysis](docs/price.md)
 
 ## Port
 

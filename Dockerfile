@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p uploads/thumbnails && chmod -R 777 uploads
+RUN mkdir -p uploads/thumbnails && chmod -R 755 uploads
 
 EXPOSE 5214
 

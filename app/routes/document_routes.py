@@ -1,9 +1,11 @@
 import os
 import io
+import html as html_module
 import zipfile
 import hashlib
 import hmac
 import secrets
+import tempfile
 from datetime import datetime, date
 from fastapi import APIRouter, Depends, Request, Form, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse, StreamingResponse
@@ -13,11 +15,13 @@ from sqlalchemy import or_, func
 from app.database import get_db
 from app.models import User, Document, UserSettings, Favorite
 from app.auth import get_current_user
-from app.config import UPLOAD_DIR, SECRET_KEY
+from app.config import UPLOAD_DIR, SECRET_KEY, MAX_UPLOAD_SIZE
 import unicodedata
 import fitz  # PyMuPDF
 import markdown as md
 from docx import Document as DocxDocument
+import openpyxl
+import csv
 
 
 def _doc_sign(doc_id: int) -> str:
@@ -43,19 +47,34 @@ def resolve_doc_hash(token: str, db: Session) -> Document | None:
         return None
     return db.query(Document).filter(Document.id == doc_id).first()
 
+from datetime import timezone as _tz
+
+_LOCAL_TZ = datetime.now().astimezone().tzinfo
+
+
+def _local_dt(dt_val, fmt="%Y-%m-%d %H:%M") -> str:
+    if not dt_val:
+        return ""
+    if dt_val.tzinfo is None:
+        dt_val = dt_val.replace(tzinfo=_tz.utc)
+    return dt_val.astimezone(_LOCAL_TZ).strftime(fmt)
+
+
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 THUMBNAILS_DIR = UPLOAD_DIR / "thumbnails"
 THUMBNAILS_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_EXTENSIONS = {".pdf", ".md", ".txt", ".docx"}
+ALLOWED_EXTENSIONS = {".pdf", ".md", ".txt", ".docx", ".xlsx", ".csv"}
 
 FILE_TYPE_ICONS = {
     ".pdf": "bi-file-earmark-pdf text-danger",
     ".md": "bi-file-earmark-text text-info",
     ".txt": "bi-file-earmark-text text-secondary",
     ".docx": "bi-file-earmark-word text-primary",
+    ".xlsx": "bi-file-earmark-excel text-success",
+    ".csv": "bi-file-earmark-spreadsheet text-success",
 }
 
 
@@ -79,9 +98,35 @@ def extract_text(file_path: str, extension: str) -> str:
         elif ext in (".md", ".txt"):
             with open(file_path, "r", encoding="utf-8", errors="replace") as f:
                 return f.read()
+        elif ext == ".xlsx":
+            with open(file_path, "rb") as fxl:
+                wb = openpyxl.load_workbook(fxl, data_only=True)
+            parts = []
+            for ws in wb.worksheets:
+                for row in ws.iter_rows(values_only=True):
+                    parts.append(" ".join(str(c) for c in row if c is not None))
+            wb.close()
+            return "\n".join(parts)
+        elif ext == ".csv":
+            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                reader = csv.reader(f)
+                return "\n".join(" ".join(row) for row in reader)
     except Exception:
         return ""
     return ""
+
+
+def _safe_path(file_path: str) -> bool:
+    """Verify file_path is within UPLOAD_DIR."""
+    try:
+        return os.path.realpath(file_path).startswith(str(UPLOAD_DIR))
+    except (ValueError, OSError):
+        return False
+
+
+def _escape_like(s: str) -> str:
+    """Escape SQL LIKE wildcards."""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def remove_diacritics(s: str) -> str:
@@ -109,6 +154,80 @@ def get_user_settings(user: User, db: Session) -> UserSettings:
     return settings
 
 
+import re
+
+def _esc(text: str) -> str:
+    return html_module.escape(text)
+
+
+async def _save_upload(file: UploadFile) -> tuple[str, str, int]:
+    """Stream upload to temp file, compute hash. Returns (temp_path, sha256_hex, file_size). Raises ValueError if too large."""
+    h = hashlib.sha256()
+    size = 0
+    tmp = tempfile.NamedTemporaryFile(delete=False, dir=str(UPLOAD_DIR))
+    try:
+        while True:
+            chunk = await file.read(64 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > MAX_UPLOAD_SIZE:
+                tmp.close()
+                os.unlink(tmp.name)
+                raise ValueError(f"File exceeds maximum size of {MAX_UPLOAD_SIZE // (1024*1024)}MB")
+            h.update(chunk)
+            tmp.write(chunk)
+        tmp.close()
+    except ValueError:
+        raise
+    except Exception:
+        tmp.close()
+        os.unlink(tmp.name)
+        raise
+    return tmp.name, h.hexdigest(), size
+
+
+def _sanitize_html(html_str: str) -> str:
+    """Remove script/iframe/object/embed tags from HTML output."""
+    html_str = re.sub(r'<\s*script[^>]*>.*?</\s*script\s*>', '', html_str, flags=re.DOTALL | re.IGNORECASE)
+    html_str = re.sub(r'<\s*script[^>]*/?\s*>', '', html_str, flags=re.IGNORECASE)
+    html_str = re.sub(r'<\s*/?\s*(iframe|object|embed|form)[^>]*>', '', html_str, flags=re.IGNORECASE)
+    html_str = re.sub(r'\bon\w+\s*=', '', html_str, flags=re.IGNORECASE)
+    return html_str
+
+
+def xlsx_to_html(file_path: str) -> str:
+    with open(file_path, "rb") as fxl:
+        wb = openpyxl.load_workbook(fxl, data_only=True)
+    html_parts = []
+    for ws in wb.worksheets:
+        html_parts.append(f"<h5>{_esc(ws.title)}</h5>")
+        html_parts.append("<table class='table table-bordered table-sm table-striped'>")
+        for i, row in enumerate(ws.iter_rows(values_only=True)):
+            tag = "th" if i == 0 else "td"
+            html_parts.append("<tr>")
+            for cell in row:
+                html_parts.append(f"<{tag}>{_esc(str(cell)) if cell is not None else ''}</{tag}>")
+            html_parts.append("</tr>")
+        html_parts.append("</table>")
+    wb.close()
+    return "\n".join(html_parts)
+
+
+def csv_to_html(file_path: str) -> str:
+    html_parts = ["<table class='table table-bordered table-sm table-striped'>"]
+    with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+        reader = csv.reader(f)
+        for i, row in enumerate(reader):
+            tag = "th" if i == 0 else "td"
+            html_parts.append("<tr>")
+            for cell in row:
+                html_parts.append(f"<{tag}>{_esc(cell)}</{tag}>")
+            html_parts.append("</tr>")
+    html_parts.append("</table>")
+    return "\n".join(html_parts)
+
+
 def docx_to_html(file_path: str) -> str:
     doc = DocxDocument(file_path)
     html_parts = []
@@ -119,18 +238,17 @@ def docx_to_html(file_path: str) -> str:
             html_parts.append("<br>")
             continue
         if "heading 1" in style:
-            html_parts.append(f"<h1>{text}</h1>")
+            html_parts.append(f"<h1>{_esc(text)}</h1>")
         elif "heading 2" in style:
-            html_parts.append(f"<h2>{text}</h2>")
+            html_parts.append(f"<h2>{_esc(text)}</h2>")
         elif "heading 3" in style:
-            html_parts.append(f"<h3>{text}</h3>")
+            html_parts.append(f"<h3>{_esc(text)}</h3>")
         elif "heading" in style:
-            html_parts.append(f"<h4>{text}</h4>")
+            html_parts.append(f"<h4>{_esc(text)}</h4>")
         else:
-            # Build rich text from runs
             runs_html = ""
             for run in para.runs:
-                t = run.text
+                t = _esc(run.text) if run.text else ""
                 if not t:
                     continue
                 if run.bold:
@@ -143,16 +261,15 @@ def docx_to_html(file_path: str) -> str:
             if runs_html:
                 html_parts.append(f"<p>{runs_html}</p>")
             else:
-                html_parts.append(f"<p>{text}</p>")
+                html_parts.append(f"<p>{_esc(text)}</p>")
 
-    # Tables
     for table in doc.tables:
         html_parts.append("<table class='table table-bordered table-sm'>")
         for i, row in enumerate(table.rows):
             html_parts.append("<tr>")
             tag = "th" if i == 0 else "td"
             for cell in row.cells:
-                html_parts.append(f"<{tag}>{cell.text}</{tag}>")
+                html_parts.append(f"<{tag}>{_esc(cell.text)}</{tag}>")
             html_parts.append("</tr>")
         html_parts.append("</table>")
 
@@ -194,7 +311,7 @@ async def api_documents(
     if hidden:
         hidden_tags = [t.strip().lower() for t in hidden.split(",") if t.strip()]
         for tag in hidden_tags:
-            query = query.filter(~func.lower(Document.hashtags).ilike(f"%{tag}%"))
+            query = query.filter(~func.lower(Document.hashtags).ilike(f"%{_escape_like(tag)}%", escape="\\"))
 
     if favorites_only == "1":
         fav_doc_ids = [r[0] for r in db.query(Favorite.document_id).filter(Favorite.user_id == current_user.id).all()]
@@ -202,14 +319,14 @@ async def api_documents(
 
     if search:
         normalized = remove_diacritics(search.lower())
-        like = f"%{normalized}%"
+        like = f"%{_escape_like(normalized)}%"
         query = query.filter(
             or_(
-                func.lower(Document.original_filename).ilike(like),
-                func.lower(Document.description).ilike(like),
-                func.lower(Document.notes).ilike(like),
-                func.lower(Document.hashtags).ilike(like),
-                func.lower(Document.content).ilike(like),
+                func.lower(Document.original_filename).ilike(like, escape="\\"),
+                func.lower(Document.description).ilike(like, escape="\\"),
+                func.lower(Document.notes).ilike(like, escape="\\"),
+                func.lower(Document.hashtags).ilike(like, escape="\\"),
+                func.lower(Document.content).ilike(like, escape="\\"),
             )
         )
     if category:
@@ -264,15 +381,16 @@ async def api_documents(
     page = max(1, min(page, total_pages))
     documents = query.offset((page - 1) * page_size).limit(page_size).all()
 
+    uploader_ids = list(set(doc.uploaded_by for doc in documents))
     user_cache = {}
+    if uploader_ids:
+        users = db.query(User).filter(User.id.in_(uploader_ids)).all()
+        user_cache = {u.id: u.username for u in users}
     fav_ids = set(
         r[0] for r in db.query(Favorite.document_id).filter(Favorite.user_id == current_user.id).all()
     )
     results = []
     for doc in documents:
-        if doc.uploaded_by not in user_cache:
-            u = db.query(User).filter(User.id == doc.uploaded_by).first()
-            user_cache[doc.uploaded_by] = u.username if u else "Unknown"
         results.append({
             "id": doc.id,
             "original_filename": doc.original_filename,
@@ -282,9 +400,9 @@ async def api_documents(
             "hashtags": doc.hashtags or "",
             "is_private": doc.is_private,
             "uploaded_by": doc.uploaded_by,
-            "uploader_name": user_cache[doc.uploaded_by],
-            "uploaded_at": doc.uploaded_at.strftime("%Y-%m-%d") if doc.uploaded_at else "",
-            "updated_at": doc.updated_at.strftime("%Y-%m-%d %H:%M") if doc.updated_at else "",
+            "uploader_name": user_cache.get(doc.uploaded_by, "Unknown"),
+            "uploaded_at": _local_dt(doc.uploaded_at),
+            "updated_at": _local_dt(doc.updated_at),
             "has_thumbnail": bool(doc.thumbnail_path),
             "notes": doc.notes or "",
             "file_size": doc.file_size or 0,
@@ -305,6 +423,7 @@ async def api_documents(
         "show_edit": settings.show_edit if settings.show_edit is not None else True,
         "show_download": settings.show_download if settings.show_download is not None else True,
         "show_delete": settings.show_delete if settings.show_delete is not None else True,
+        "show_line_numbers": settings.show_line_numbers if settings.show_line_numbers is not None else False,
     }
 
 
@@ -355,21 +474,24 @@ async def upload_document(
             "error": f"Allowed file types: {', '.join(ALLOWED_EXTENSIONS)}"
         })
 
-    content = await file.read()
-    file_hash = hashlib.sha256(content).hexdigest()
+    try:
+        tmp_path, file_hash, file_size = await _save_upload(file)
+    except ValueError as e:
+        return templates.TemplateResponse("upload.html", {
+            "request": request, "user": current_user, "error": str(e)
+        })
 
     existing = db.query(Document).filter(Document.content_hash == file_hash).first()
     if existing:
+        os.unlink(tmp_path)
         return templates.TemplateResponse("upload.html", {
             "request": request, "user": current_user,
             "error": f"This file already exists as '{existing.original_filename}'"
         })
 
     file_path = UPLOAD_DIR / file_hash
-    with open(file_path, "wb") as f:
-        f.write(content)
+    os.rename(tmp_path, str(file_path))
 
-    # Generate thumbnail only for PDFs
     thumb_path = None
     if ext == ".pdf":
         thumb_filename = f"{file_hash}.png"
@@ -393,7 +515,7 @@ async def upload_document(
         original_filename=file.filename,
         file_extension=ext,
         file_path=str(file_path),
-        file_size=len(content),
+        file_size=file_size,
         content_hash=file_hash,
         thumbnail_path=str(thumb_path) if thumb_path else None,
         thumbnail_page=thumbnail_page if ext == ".pdf" else 1,
@@ -441,7 +563,7 @@ async def document_info(doc_id: int, current_user: User = Depends(get_current_us
         "notes": doc.notes or "",
         "is_private": doc.is_private,
         "uploader_name": uploader.username if uploader else "Unknown",
-        "uploaded_at": doc.uploaded_at.strftime("%Y-%m-%d %H:%M") if doc.uploaded_at else "",
+        "uploaded_at": _local_dt(doc.uploaded_at),
         "document_date": doc.document_date.strftime("%Y-%m-%d") if doc.document_date else "",
         "file_size": doc.file_size or 0,
         "share_token": doc.share_token or "",
@@ -455,6 +577,8 @@ async def download_document(doc_id: int, current_user: User = Depends(get_curren
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     if not current_user.is_admin and doc.is_private and doc.uploaded_by != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not _safe_path(doc.file_path):
         raise HTTPException(status_code=403, detail="Access denied")
     return FileResponse(doc.file_path, filename=doc.original_filename, media_type="application/octet-stream")
 
@@ -484,17 +608,26 @@ async def render_document(doc_id: int, current_user: User = Depends(get_current_
     if ext == ".md":
         with open(doc.file_path, "r", encoding="utf-8", errors="replace") as f:
             raw = f.read()
-        body = md.markdown(raw, extensions=["tables", "fenced_code", "codehilite"])
+        body = _sanitize_html(md.markdown(raw, extensions=["tables", "fenced_code", "codehilite"]))
     elif ext == ".txt":
         with open(doc.file_path, "r", encoding="utf-8", errors="replace") as f:
             raw = f.read()
-        import html
-        body = f"<pre style='white-space:pre-wrap; word-wrap:break-word;'>{html.escape(raw)}</pre>"
+        body = f"<pre style='white-space:pre-wrap; word-wrap:break-word;'>{_esc(raw)}</pre>"
     elif ext == ".docx":
         try:
             body = docx_to_html(doc.file_path)
         except Exception as e:
-            body = f"<p class='text-danger'>Error rendering document: {e}</p>"
+            body = f"<p class='text-danger'>Error rendering document: {_esc(str(e))}</p>"
+    elif ext == ".xlsx":
+        try:
+            body = xlsx_to_html(doc.file_path)
+        except Exception as e:
+            body = f"<p class='text-danger'>Error rendering spreadsheet: {_esc(str(e))}</p>"
+    elif ext == ".csv":
+        try:
+            body = csv_to_html(doc.file_path)
+        except Exception as e:
+            body = f"<p class='text-danger'>Error rendering CSV: {_esc(str(e))}</p>"
     else:
         raise HTTPException(status_code=400, detail="Unsupported format for rendering")
 
@@ -531,16 +664,25 @@ async def view_render_by_hash(doc_hash: str, current_user: User = Depends(get_cu
     body = ""
     if ext == ".md":
         with open(doc.file_path, "r", encoding="utf-8", errors="replace") as f:
-            body = md.markdown(f.read(), extensions=["tables", "fenced_code", "codehilite"])
+            body = _sanitize_html(md.markdown(f.read(), extensions=["tables", "fenced_code", "codehilite"]))
     elif ext == ".txt":
-        import html
         with open(doc.file_path, "r", encoding="utf-8", errors="replace") as f:
-            body = f"<pre style='white-space:pre-wrap; word-wrap:break-word;'>{html.escape(f.read())}</pre>"
+            body = f"<pre style='white-space:pre-wrap; word-wrap:break-word;'>{_esc(f.read())}</pre>"
     elif ext == ".docx":
         try:
             body = docx_to_html(doc.file_path)
         except Exception as e:
-            body = f"<p class='text-danger'>Error: {e}</p>"
+            body = f"<p class='text-danger'>Error: {_esc(str(e))}</p>"
+    elif ext == ".xlsx":
+        try:
+            body = xlsx_to_html(doc.file_path)
+        except Exception as e:
+            body = f"<p class='text-danger'>Error: {_esc(str(e))}</p>"
+    elif ext == ".csv":
+        try:
+            body = csv_to_html(doc.file_path)
+        except Exception as e:
+            body = f"<p class='text-danger'>Error: {_esc(str(e))}</p>"
     else:
         raise HTTPException(status_code=400)
     html_page = f"""<!DOCTYPE html>
@@ -580,7 +722,7 @@ async def search_context(
 
     settings = get_user_settings(current_user, db)
     normalized = remove_diacritics(search.lower())
-    like = f"%{normalized}%"
+    like = f"%{_escape_like(normalized)}%"
 
     query = db.query(Document)
     if not current_user.is_admin:
@@ -590,11 +732,11 @@ async def search_context(
 
     query = query.filter(
         or_(
-            func.lower(Document.original_filename).ilike(like),
-            func.lower(Document.description).ilike(like),
-            func.lower(Document.notes).ilike(like),
-            func.lower(Document.hashtags).ilike(like),
-            func.lower(Document.content).ilike(like),
+            func.lower(Document.original_filename).ilike(like, escape="\\"),
+            func.lower(Document.description).ilike(like, escape="\\"),
+            func.lower(Document.notes).ilike(like, escape="\\"),
+            func.lower(Document.hashtags).ilike(like, escape="\\"),
+            func.lower(Document.content).ilike(like, escape="\\"),
         )
     )
 
@@ -641,17 +783,15 @@ async def search_context(
 @router.post("/api/bulk-delete", response_class=JSONResponse)
 async def bulk_delete(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     data = await request.json()
-    ids = data.get("ids", [])
+    ids = data.get("ids", [])[:200]
+    docs = db.query(Document).filter(Document.id.in_(ids)).all() if ids else []
     deleted = 0
-    for doc_id in ids:
-        doc = db.query(Document).filter(Document.id == doc_id).first()
-        if not doc:
-            continue
+    for doc in docs:
         if not current_user.is_admin and doc.uploaded_by != current_user.id:
             continue
-        if os.path.exists(doc.file_path):
+        if _safe_path(doc.file_path) and os.path.exists(doc.file_path):
             os.remove(doc.file_path)
-        if doc.thumbnail_path and os.path.exists(doc.thumbnail_path):
+        if doc.thumbnail_path and _safe_path(doc.thumbnail_path) and os.path.exists(doc.thumbnail_path):
             os.remove(doc.thumbnail_path)
         db.delete(doc)
         deleted += 1
@@ -662,20 +802,20 @@ async def bulk_delete(request: Request, current_user: User = Depends(get_current
 @router.post("/api/bulk-zip")
 async def bulk_zip(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     data = await request.json()
-    ids = data.get("ids", [])
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for doc_id in ids:
-            doc = db.query(Document).filter(Document.id == doc_id).first()
-            if not doc:
-                continue
+    ids = data.get("ids", [])[:200]  # limit to 200 documents
+    docs = db.query(Document).filter(Document.id.in_(ids)).all() if ids else []
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    tmp_path = tmp.name
+    tmp.close()
+    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for doc in docs:
             if not current_user.is_admin and doc.is_private and doc.uploaded_by != current_user.id:
                 continue
-            if os.path.exists(doc.file_path):
+            if _safe_path(doc.file_path) and os.path.exists(doc.file_path):
                 zf.write(doc.file_path, doc.original_filename)
-    buf.seek(0)
-    return StreamingResponse(buf, media_type="application/zip",
-                             headers={"Content-Disposition": "attachment; filename=documents.zip"})
+    from starlette.background import BackgroundTask
+    return FileResponse(tmp_path, media_type="application/zip", filename="documents.zip",
+                        background=BackgroundTask(os.unlink, tmp_path))
 
 
 @router.post("/api/document/{doc_id}/share", response_class=JSONResponse)
@@ -709,29 +849,35 @@ async def public_shared_viewer(token: str, db: Session = Depends(get_db)):
     if not doc:
         raise HTTPException(status_code=404, detail="Link not found or expired")
     ext = (doc.file_extension or "").lower()
+    safe_name = _esc(doc.original_filename)
     if ext == ".pdf":
-        return HTMLResponse(f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>{doc.original_filename}</title>
+        return HTMLResponse(f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>{safe_name}</title>
         <link href="/static/css/bootstrap.min.css" rel="stylesheet">
         </head><body class="p-3">
-        <h5>{doc.original_filename}</h5>
-        <iframe src="/shared/{token}" width="100%" style="height:85vh;border:none;"></iframe>
-        <a href="/shared/{token}" class="btn btn-sm btn-success mt-2"><i class="bi bi-download"></i> Download</a>
+        <h5>{safe_name}</h5>
+        <iframe src="/shared/{_esc(token)}" width="100%" style="height:85vh;border:none;"></iframe>
+        <a href="/shared/{_esc(token)}" class="btn btn-sm btn-success mt-2"><i class="bi bi-download"></i> Download</a>
         </body></html>""")
     body = ""
     if ext == ".md":
         with open(doc.file_path, "r", encoding="utf-8", errors="replace") as f:
-            body = md.markdown(f.read(), extensions=["tables", "fenced_code"])
+            raw = f.read()
+        body = md.markdown(raw, extensions=["tables", "fenced_code"])
+        body = _sanitize_html(body)
     elif ext == ".txt":
-        import html
         with open(doc.file_path, "r", encoding="utf-8", errors="replace") as f:
-            body = f"<pre style='white-space:pre-wrap;'>{html.escape(f.read())}</pre>"
+            body = f"<pre style='white-space:pre-wrap;'>{_esc(f.read())}</pre>"
     elif ext == ".docx":
         body = docx_to_html(doc.file_path)
-    return HTMLResponse(f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>{doc.original_filename}</title>
+    elif ext == ".xlsx":
+        body = xlsx_to_html(doc.file_path)
+    elif ext == ".csv":
+        body = csv_to_html(doc.file_path)
+    return HTMLResponse(f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>{safe_name}</title>
     <link href="/static/css/bootstrap.min.css" rel="stylesheet">
     <style>body {{ padding: 20px; }}</style>
-    </head><body><h5>{doc.original_filename}</h5>{body}
-    <hr><a href="/shared/{token}" class="btn btn-sm btn-success"><i class="bi bi-download"></i> Download</a>
+    </head><body><h5>{safe_name}</h5>{body}
+    <hr><a href="/shared/{_esc(token)}" class="btn btn-sm btn-success"><i class="bi bi-download"></i> Download</a>
     </body></html>""")
 
 
@@ -771,16 +917,18 @@ async def api_upload_document(
     if ext not in ALLOWED_EXTENSIONS:
         return JSONResponse({"ok": False, "error": f"Unsupported file type: {ext}", "filename": file.filename})
 
-    content = await file.read()
-    file_hash = hashlib.sha256(content).hexdigest()
+    try:
+        tmp_path, file_hash, file_size = await _save_upload(file)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e), "filename": file.filename})
 
     existing = db.query(Document).filter(Document.content_hash == file_hash).first()
     if existing:
+        os.unlink(tmp_path)
         return JSONResponse({"ok": False, "error": f"Already exists as '{existing.original_filename}'", "filename": file.filename})
 
     file_path = UPLOAD_DIR / file_hash
-    with open(file_path, "wb") as f:
-        f.write(content)
+    os.rename(tmp_path, str(file_path))
 
     thumb_path = None
     if ext == ".pdf":
@@ -805,7 +953,7 @@ async def api_upload_document(
         original_filename=file.filename,
         file_extension=ext,
         file_path=str(file_path),
-        file_size=len(content),
+        file_size=file_size,
         content_hash=file_hash,
         thumbnail_path=str(thumb_path) if thumb_path else None,
         thumbnail_page=thumbnail_page if ext == ".pdf" else 1,
@@ -906,6 +1054,7 @@ async def api_get_settings(current_user: User = Depends(get_current_user), db: S
         "show_edit": s.show_edit if s.show_edit is not None else True,
         "show_download": s.show_download if s.show_download is not None else True,
         "show_delete": s.show_delete if s.show_delete is not None else True,
+        "show_line_numbers": s.show_line_numbers if s.show_line_numbers is not None else False,
     }
 
 
@@ -929,6 +1078,7 @@ async def api_save_settings(
     s.show_edit = form.get("show_edit", "true") == "true"
     s.show_download = form.get("show_download", "true") == "true"
     s.show_delete = form.get("show_delete", "true") == "true"
+    s.show_line_numbers = form.get("show_line_numbers", "false") == "true"
     db.commit()
     resp = JSONResponse({"ok": True})
     resp.set_cookie("theme", s.theme, httponly=False, samesite="lax", max_age=31536000)
