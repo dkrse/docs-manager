@@ -76,14 +76,22 @@ Admin account is created automatically on first startup.
 
 - **Multi-format support**: PDF, DOCX, Markdown, TXT
 - **In-browser viewing**: PDF viewer, Markdown/DOCX/TXT renderers
-- **Tile-based UI**: compact document grid with thumbnails
+- **Grid/List view**: toggle between thumbnail grid and detailed sortable table view
 - **Full-text search**: searches inside document content (PDF, DOCX, MD, TXT)
+- **Search context**: detail button shows first matching line per document with highlighting
 - **Live search**: diacritics-insensitive, no Enter key needed
-- **Filters**: category, file type, sort (date, size, random)
+- **Column sorting**: click list view headers (Name, Type, Size, Created, Modified) to sort across all pages
+- **Filters**: category, file type, sort, favorites, date ranges
+- **Multi-file upload**: upload multiple files at once with progress bar
+- **Favorites**: star/bookmark documents, filter by favorites
+- **Public sharing**: generate shareable links for documents (no login required)
+- **Bulk operations**: select multiple documents, bulk delete or ZIP download
 - **Metadata**: category, hashtags, description, notes, document date
 - **Edit metadata**: inline modal editor
 - **Duplicate detection**: SHA-256 content hash
-- **User settings**: page size, default sort, hidden hashtags, light/dark theme
+- **User settings**: page size, default sort, hidden hashtags, light/dark theme, show/hide tile controls
+- **Modal-based UI**: upload, settings, change password all in modals on dashboard
+- **Secure document URLs**: daily-rotating hash-based URLs for document viewing
 - **Access control**: admin/user roles, private documents
 - **Offline**: all CSS/JS/fonts served locally
 - **Help manual**: in-app user guide accessible via navbar

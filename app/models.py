@@ -26,6 +26,9 @@ class UserSettings(Base):
     default_sort = Column(String(20), default="random")
     hidden_hashtags = Column(Text, default="")
     theme = Column(String(10), default="light")
+    show_edit = Column(Boolean, default=True)
+    show_download = Column(Boolean, default=True)
+    show_delete = Column(Boolean, default=True)
 
     user = relationship("User", back_populates="settings")
 
@@ -47,9 +50,23 @@ class Document(Base):
     is_private = Column(Boolean, default=False)
     uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     file_size = Column(Integer, default=0)
     document_date = Column(DateTime, nullable=True)
     content_hash = Column(String(64), nullable=False, index=True)
     content = Column(Text, default="")
+    share_token = Column(String(64), nullable=True, unique=True, index=True)
 
     uploader = relationship("User", back_populates="documents")
+    favorites = relationship("Favorite", back_populates="document", cascade="all, delete-orphan")
+
+
+class Favorite(Base):
+    __tablename__ = "favorites"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
+
+    user = relationship("User")
+    document = relationship("Document", back_populates="favorites")

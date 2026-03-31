@@ -46,6 +46,9 @@ erDiagram
         varchar default_sort
         text hidden_hashtags
         varchar theme
+        boolean show_edit
+        boolean show_download
+        boolean show_delete
     }
 
     documents {
@@ -63,14 +66,24 @@ erDiagram
         boolean is_private
         int uploaded_by FK
         datetime uploaded_at
+        datetime updated_at
         int file_size
         datetime document_date
         varchar content_hash
         text content
+        varchar share_token UK
+    }
+
+    favorites {
+        int id PK
+        int user_id FK
+        int document_id FK
     }
 
     users ||--o| user_settings : "has"
     users ||--o{ documents : "uploads"
+    users ||--o{ favorites : "has"
+    documents ||--o{ favorites : "has"
 ```
 
 ## Authentication Flow
@@ -130,14 +143,19 @@ sequenceDiagram
     B->>S: Click tile thumbnail
     S-->>B: Open view modal
     B->>S: GET /document/{id}/info
-    S-->>B: JSON metadata
+    S-->>B: JSON metadata (incl. doc_hash, share_token)
     alt PDF
-        B->>S: GET /document/{id}/pdf
+        B->>S: GET /v/{hash}/pdf
+        S->>S: Validate daily HMAC hash
         S-->>B: PDF file (iframe)
     else MD / TXT / DOCX
-        B->>S: GET /document/{id}/render
-        S->>S: Convert to HTML
+        B->>S: GET /v/{hash}/render
+        S->>S: Validate hash, convert to HTML
         S-->>B: HTML page (iframe)
+    end
+    opt Open in new tab
+        B->>S: GET /v/{hash}/pdf or /render
+        S-->>B: Full-page document view
     end
 ```
 
@@ -149,20 +167,30 @@ graph LR
         LOGIN[GET/POST /login]
     end
 
+    subgraph Public Access
+        SHARED[GET /shared/token/view]
+        SHAREDDL[GET /shared/token]
+    end
+
     subgraph Authenticated
         DASH[GET /]
-        UPLOAD[GET/POST /upload]
-        VIEW[GET /document/id/pdf]
-        RENDER[GET /document/id/render]
+        UPLOAD[POST /api/upload]
+        VIEW[GET /v/hash/pdf]
+        RENDER[GET /v/hash/render]
         DL[GET /document/id/download]
         THUMB[GET /document/id/thumbnail]
         INFO[GET /document/id/info]
         EDIT[POST /document/id/edit]
         DEL[POST /document/id/delete]
         API[GET /api/documents]
+        SEARCH[GET /api/search-context]
+        FAV[POST /api/document/id/favorite]
+        SHARE[POST /api/document/id/share]
+        BULKDEL[POST /api/bulk-delete]
+        BULKZIP[POST /api/bulk-zip]
+        SETAPI[GET/POST /api/settings]
+        CHPWAPI[POST /api/change-password]
         HELP[GET /help]
-        SET[GET/POST /settings]
-        CHPW[GET/POST /change-password]
         LOGOUT[GET /logout]
     end
 

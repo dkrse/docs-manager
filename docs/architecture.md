@@ -30,17 +30,17 @@ Document Manager is a FastAPI web application for managing documents (PDF, DOCX,
 │   ├── main.py              # FastAPI app, startup, router mounting
 │   ├── config.py             # Settings from env vars (DB, secret, upload path)
 │   ├── database.py           # SQLAlchemy engine, session factory
-│   ├── models.py             # User, UserSettings, Document ORM models
+│   ├── models.py             # User, UserSettings, Document, Favorite ORM models
 │   ├── schemas.py            # Pydantic schemas
 │   ├── auth.py               # JWT, password hashing, auth dependencies
 │   ├── routes/
 │   │   ├── auth_routes.py    # Login, logout, change password
 │   │   ├── user_routes.py    # Admin user management (CRUD)
-│   │   └── document_routes.py # Documents, settings, edit metadata
+│   │   └── document_routes.py # Documents, settings, edit, favorites, sharing, bulk ops
 │   ├── templates/            # Jinja2 HTML templates
 │   │   ├── base.html         # Layout, navbar, theme support
 │   │   ├── login.html
-│   │   ├── dashboard.html    # Tile grid, search, modals (view + edit)
+│   │   ├── dashboard.html    # Grid/list view, search, modals (view, edit, upload, settings, password)
 │   │   ├── upload.html
 │   │   ├── users.html        # Admin user management
 │   │   ├── settings.html     # User preferences
@@ -94,7 +94,8 @@ Private documents are visible only to uploader and admin.
 - Content extracted on upload via `extract_text()` helper, stored normalized (lowercase, no diacritics) in `Document.content` column
 - Existing documents backfilled on startup
 - Filters: category, file type (.pdf/.docx/.md/.txt)
-- Sort: random (default), upload date, document date, file size
+- Sort: random (default), upload date, document date, file size, name, type, modified
+- List view column sorting: name, type, size, created, modified (server-side, stable across pages)
 
 ## User Settings
 
@@ -103,10 +104,53 @@ Per-user preferences stored in `user_settings` table:
 - Default sort order
 - Hidden hashtags (comma-separated, documents with these tags are filtered out)
 - Theme (light/dark)
+- Show/hide tile controls (edit, download, delete buttons)
 
 ## Document Viewing
 
-- **PDF**: served via iframe from `/document/{id}/pdf`
+- **PDF**: served via iframe from `/v/{hash}/pdf`
 - **Markdown**: rendered to HTML via Python `markdown` library
 - **TXT**: displayed in `<pre>` tag with word-wrap
 - **DOCX**: converted to HTML via `python-docx` (headings, formatting, tables)
+- **Open in new tab**: full-page document view via hash-based URL
+- Document URLs use daily-rotating HMAC hashes (not sequential IDs)
+
+## Favorites
+
+- Users can star/bookmark any document
+- Stored in `favorites` table (user_id, document_id)
+- Filter view to show only favorites
+- Toggle via star icon on grid tiles or list rows
+
+## Public Sharing
+
+- Document owner can generate a public share link (`share_token`)
+- Accessible at `/shared/{token}/view` (view) and `/shared/{token}` (download)
+- No authentication required for shared links
+- Toggle on/off from document view modal
+
+## Bulk Operations
+
+- Checkbox selection on grid tiles and list rows (with "select all" in list view)
+- Bulk delete (with confirmation)
+- Bulk ZIP download (streams ZIP with original filenames)
+
+## Grid / List View
+
+- **Grid view**: thumbnail tiles with filename label below (outside tile border), action buttons
+- **List view**: table with columns: checkbox, favorite, name, type, size, created, modified, actions
+- **Column sorting**: click any column header (Name, Type, Size, Created, Modified) to sort
+  - Sorting is server-side — works across all pages, not just the current page
+  - Click again to toggle ascending/descending (arrow indicator in header)
+  - Independent from the filter panel sort dropdown
+  - Changing the dropdown sort resets column sort and vice versa
+  - Stable sort with secondary ordering by document ID (no reordering when paging)
+- View preference persisted in localStorage
+
+## Search Context
+
+- Detail button appears when search has results
+- Opens modal showing each matching document with:
+  - Filename and file type
+  - First matching line with search term highlighted
+  - Field where match was found (content, filename, description, etc.)

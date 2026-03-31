@@ -2,6 +2,68 @@
 
 **Author:** krse
 
+## v2.0.0 - Major UI Overhaul & New Features
+
+### Grid / List View
+- Toggle between thumbnail grid and detailed table view
+- Grid view: tiles with thumbnail/icon, filename label below (outside border)
+- List view: table with name, type, size, created date, modified date, action buttons
+- Column sorting: click headers (Name, Type, Size, Created, Modified) to sort server-side across all pages
+- Ascending/descending toggle with arrow indicators
+- Stable sort (secondary by ID) — no reordering when paging
+- "Select all" checkbox in list view header
+- View preference persisted in localStorage
+
+### Multi-file Upload
+- Upload multiple files at once from the upload modal
+- Progress bar with per-file status
+- Uses new JSON API endpoint (`POST /api/upload`)
+
+### Favorites / Bookmarks
+- Star/unstar documents via icon on tiles and list rows
+- Filter by favorites only in filter panel
+- Stored in dedicated `favorites` table
+
+### Public Sharing
+- Generate shareable links for documents (no login required)
+- Share button in document view modal with copy-to-clipboard
+- Public view (`/shared/{token}/view`) and download (`/shared/{token}`)
+- Toggle share on/off per document
+
+### Bulk Operations
+- Checkbox selection on each document (grid and list)
+- Bulk delete with confirmation
+- Bulk ZIP download (original filenames)
+
+### Secure Document URLs
+- Document viewing uses daily-rotating HMAC hash URLs (`/v/{hash}/pdf`)
+- Hash changes every day, prevents URL guessing
+- O(1) hash resolution (no iteration)
+
+### Search Context Details
+- Info button appears next to search when results found
+- Modal shows each matching document with first matching line highlighted
+- Shows which field matched (content, filename, description, etc.)
+
+### Modal-based UI
+- Upload, Settings, Change Password moved to modals on dashboard
+- No more page navigation for common actions
+- Navbar links open modals on dashboard, fallback to pages elsewhere
+
+### Settings Enhancements
+- Show/hide tile controls (edit, download, delete) per user
+- All settings accessible via JSON API (`GET/POST /api/settings`)
+- Change password via JSON API (`POST /api/change-password`)
+
+### Other Improvements
+- Open document in full page (new tab) from view modal
+- `updated_at` column on documents (tracks metadata edits)
+- `share_token` column for public sharing
+- Centered search bar in toolbar
+- Increased spacing between tiles (16px gap)
+
+---
+
 ## v1.1.0 - Full-Text Search & Help
 
 ### Full-Text Search

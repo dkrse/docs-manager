@@ -36,23 +36,23 @@
                 <div id="helpUpload" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
                     <div class="accordion-body">
                         <ol>
-                            <li>Click <strong>Upload</strong> in the navigation bar.</li>
-                            <li>Select a file (PDF, DOCX, MD, or TXT).</li>
+                            <li>Click <strong>Upload</strong> in the navigation bar or toolbar &mdash; opens a modal dialog.</li>
+                            <li>Select one or <strong>multiple files</strong> (PDF, DOCX, MD, or TXT).</li>
                             <li>For PDF files, you can choose which page to use as the <strong>thumbnail preview</strong>.</li>
-                            <li>Fill in optional metadata:
+                            <li>Fill in optional metadata (applies to all selected files):
                                 <ul>
                                     <li><strong>Category</strong> &mdash; e.g. Invoice, Report, Contract</li>
-                                    <li><strong>Hashtags</strong> &mdash; comma-separated tags for organizing, e.g. <code>finance, 2024, quarterly</code></li>
+                                    <li><strong>Hashtags</strong> &mdash; comma-separated tags, e.g. <code>finance, 2024, quarterly</code></li>
                                     <li><strong>Description</strong> &mdash; short summary of the document</li>
                                     <li><strong>Notes</strong> &mdash; additional notes for your reference</li>
-                                    <li><strong>Document Date</strong> &mdash; the date the document relates to (not the upload date)</li>
-                                    <li><strong>Private</strong> &mdash; check this to make the document visible only to you and admins</li>
+                                    <li><strong>Document Date</strong> &mdash; the date the document relates to</li>
+                                    <li><strong>Private</strong> &mdash; make the document visible only to you and admins</li>
                                 </ul>
                             </li>
-                            <li>Click <strong>Upload</strong>.</li>
+                            <li>Click <strong>Upload</strong>. A progress bar shows the status for each file.</li>
                         </ol>
                         <div class="alert alert-info small mb-0">
-                            <i class="bi bi-info-circle"></i> Duplicate files are automatically detected. If a file with the same content already exists, the upload will be rejected.
+                            <i class="bi bi-info-circle"></i> Duplicate files are automatically detected. If a file with the same content already exists, that file will be skipped and the rest will continue uploading.
                         </div>
                     </div>
                 </div>
@@ -66,13 +66,47 @@
                 </h2>
                 <div id="helpDashboard" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
                     <div class="accordion-body">
-                        <p>The dashboard shows all your documents as tiles. Each tile displays the filename, upload date, and file size.</p>
-                        <h6>Actions on each tile:</h6>
+                        <p>The dashboard has two display modes, toggled with the <i class="bi bi-list"></i> / <i class="bi bi-grid"></i> button:</p>
+                        <h6><i class="bi bi-grid"></i> Grid View</h6>
                         <ul>
-                            <li><strong>Click the tile</strong> &mdash; opens the document viewer (PDF in iframe, others rendered as HTML)</li>
-                            <li><i class="bi bi-pencil text-warning"></i> <strong>Edit</strong> &mdash; edit the document metadata (category, tags, description, notes, date, visibility)</li>
+                            <li>Documents shown as tiles with thumbnails (PDF) or file type icons</li>
+                            <li>Filename displayed below the tile</li>
+                            <li>Action buttons (edit, download, delete) inside the tile</li>
+                            <li><i class="bi bi-star"></i> Star icon to add/remove from favorites</li>
+                            <li>Checkbox for bulk selection</li>
+                        </ul>
+                        <h6><i class="bi bi-list"></i> List View</h6>
+                        <ul>
+                            <li>Documents shown in a table with columns: Name, Type, Size, Created, Modified</li>
+                            <li><strong>Click any column header</strong> to sort &mdash; click again to reverse. Sorting works across all pages.</li>
+                            <li>"Select all" checkbox in the header row</li>
+                            <li>Action buttons in the last column</li>
+                        </ul>
+                        <h6>Actions on each document:</h6>
+                        <ul>
+                            <li><strong>Click the name/thumbnail</strong> &mdash; opens the document viewer modal</li>
+                            <li><i class="bi bi-star text-warning"></i> <strong>Favorite</strong> &mdash; star/unstar the document</li>
+                            <li><i class="bi bi-pencil text-warning"></i> <strong>Edit</strong> &mdash; edit metadata (category, tags, description, notes, date, visibility)</li>
                             <li><i class="bi bi-download text-success"></i> <strong>Download</strong> &mdash; download the original file</li>
-                            <li><i class="bi bi-trash text-danger"></i> <strong>Delete</strong> &mdash; permanently delete the document (with confirmation)</li>
+                            <li><i class="bi bi-trash text-danger"></i> <strong>Delete</strong> &mdash; permanently delete the document</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpViewer">
+                        <i class="bi bi-eye me-2"></i> Document Viewer
+                    </button>
+                </h2>
+                <div id="helpViewer" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <p>Clicking a document opens a modal with the document content and metadata. Available actions in the modal footer:</p>
+                        <ul>
+                            <li><i class="bi bi-share text-primary"></i> <strong>Share</strong> &mdash; generate a public link (see Sharing section)</li>
+                            <li><i class="bi bi-box-arrow-up-right text-info"></i> <strong>Open</strong> &mdash; open the document in a new tab (full page). Uses secure daily-rotating URLs.</li>
+                            <li><i class="bi bi-download text-success"></i> <strong>Download</strong> &mdash; download the original file</li>
                         </ul>
                     </div>
                 </div>
@@ -90,13 +124,19 @@
                         <p>Type in the <strong>Search</strong> field to search across:</p>
                         <ul>
                             <li>Filename</li>
-                            <li>Description</li>
-                            <li>Notes</li>
-                            <li>Hashtags</li>
+                            <li>Description, Notes, Hashtags</li>
                             <li><strong>Document content</strong> &mdash; the actual text inside PDF, DOCX, MD, and TXT files</li>
                         </ul>
-                        <p>Search works <strong>without diacritics</strong> &mdash; e.g. searching for <code>resume</code> will find documents containing "R&eacute;sum&eacute;".</p>
-                        <p>Results update automatically as you type.</p>
+                        <p>Search is <strong>diacritics-insensitive</strong> &mdash; e.g. searching for <code>resume</code> will find "R&eacute;sum&eacute;". Results update automatically as you type.</p>
+
+                        <h6><i class="bi bi-info-circle text-info"></i> Search Details</h6>
+                        <p>When search results are found, an <i class="bi bi-info-circle"></i> button appears next to the search field. Click it to open a modal showing:</p>
+                        <ul>
+                            <li>Each matching document with filename and type</li>
+                            <li>The <strong>first matching line</strong> with the search term highlighted</li>
+                            <li>Which field the match was found in (content, filename, description, etc.)</li>
+                        </ul>
+                        <p>Click any result to open that document.</p>
 
                         <h6>Filters</h6>
                         <p>Click the <i class="bi bi-funnel"></i> <strong>Filter</strong> button to show advanced filters:</p>
@@ -104,9 +144,66 @@
                             <li><strong>Category</strong> &mdash; filter by document category</li>
                             <li><strong>Type</strong> &mdash; filter by file type (PDF, DOCX, MD, TXT)</li>
                             <li><strong>Sort</strong> &mdash; change sort order (random, upload date, document date, file size)</li>
-                            <li><strong>Doc date</strong> &mdash; filter by document date range</li>
-                            <li><strong>Upload date</strong> &mdash; filter by upload date range</li>
+                            <li><strong>Favorites</strong> &mdash; show only starred documents</li>
+                            <li><strong>Doc date / Upload date</strong> &mdash; filter by date range</li>
                         </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpBulk">
+                        <i class="bi bi-check2-square me-2"></i> Bulk Operations
+                    </button>
+                </h2>
+                <div id="helpBulk" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <p>Select multiple documents using the checkboxes on tiles (grid) or rows (list). A bulk action bar appears with:</p>
+                        <ul>
+                            <li><i class="bi bi-file-zip"></i> <strong>ZIP Download</strong> &mdash; download all selected documents as a single ZIP file</li>
+                            <li><i class="bi bi-trash"></i> <strong>Delete</strong> &mdash; delete all selected documents (with confirmation)</li>
+                            <li><strong>Clear</strong> &mdash; deselect all</li>
+                        </ul>
+                        <p>In list view, use the checkbox in the header to select/deselect all documents on the current page.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpFavorites">
+                        <i class="bi bi-star me-2"></i> Favorites
+                    </button>
+                </h2>
+                <div id="helpFavorites" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <p>Click the <i class="bi bi-star"></i> star icon on any document to mark it as a favorite. Favorites are per-user.</p>
+                        <ul>
+                            <li>In <strong>grid view</strong>, the star is in the top-right corner of the tile</li>
+                            <li>In <strong>list view</strong>, the star is in the second column</li>
+                            <li>Use the <strong>Favorites</strong> filter to show only starred documents</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpSharing">
+                        <i class="bi bi-share me-2"></i> Sharing
+                    </button>
+                </h2>
+                <div id="helpSharing" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                    <div class="accordion-body">
+                        <p>You can share a document publicly without requiring the recipient to log in:</p>
+                        <ol>
+                            <li>Open the document in the viewer modal</li>
+                            <li>Click the <i class="bi bi-share"></i> <strong>Share</strong> button</li>
+                            <li>A public link is generated. Click <i class="bi bi-clipboard"></i> to copy it to clipboard.</li>
+                            <li>Send the link to anyone &mdash; they can view and download the document without an account.</li>
+                        </ol>
+                        <p>To <strong>revoke</strong> sharing, click the <i class="bi bi-x-lg text-danger"></i> button next to the link. The link will stop working immediately.</p>
                     </div>
                 </div>
             </div>
@@ -119,12 +216,19 @@
                 </h2>
                 <div id="helpSettings" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
                     <div class="accordion-body">
-                        <p>Click the <i class="bi bi-gear"></i> icon in the navigation bar to access settings:</p>
+                        <p>Click the <i class="bi bi-gear"></i> icon in the navigation bar to open the settings modal:</p>
                         <ul>
                             <li><strong>Theme</strong> &mdash; switch between Light and Dark mode</li>
-                            <li><strong>Documents per page</strong> &mdash; number of tiles shown per page (5&ndash;100)</li>
+                            <li><strong>Documents per page</strong> &mdash; number of documents shown per page (5&ndash;100)</li>
                             <li><strong>Default sort</strong> &mdash; the default sort order when you open the dashboard</li>
-                            <li><strong>Hidden hashtags</strong> &mdash; comma-separated list of tags; documents with these hashtags will be hidden from your dashboard</li>
+                            <li><strong>Hidden hashtags</strong> &mdash; comma-separated list of tags; documents with these hashtags will be hidden</li>
+                        </ul>
+                        <h6>Tile controls visibility</h6>
+                        <p>Toggle which action buttons are shown on document tiles:</p>
+                        <ul>
+                            <li><i class="bi bi-pencil"></i> <strong>Edit</strong> &mdash; show/hide the edit button</li>
+                            <li><i class="bi bi-download"></i> <strong>Download</strong> &mdash; show/hide the download button</li>
+                            <li><i class="bi bi-trash"></i> <strong>Delete</strong> &mdash; show/hide the delete button</li>
                         </ul>
                     </div>
                 </div>
@@ -133,14 +237,15 @@
             <div class="accordion-item">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpVisibility">
-                        <i class="bi bi-eye me-2"></i> Document Visibility
+                        <i class="bi bi-lock me-2"></i> Document Visibility
                     </button>
                 </h2>
                 <div id="helpVisibility" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
                     <div class="accordion-body">
                         <ul>
-                            <li><strong>Public documents</strong> &mdash; visible to all users</li>
+                            <li><strong>Public documents</strong> &mdash; visible to all logged-in users</li>
                             <li><strong>Private documents</strong> <span class="badge bg-warning text-dark"><i class="bi bi-lock"></i></span> &mdash; visible only to the uploader and admins</li>
+                            <li><strong>Shared documents</strong> &mdash; accessible to anyone with the share link (no login needed)</li>
                         </ul>
                         <p>You can change visibility at any time by editing the document metadata.</p>
                     </div>
@@ -176,7 +281,7 @@
                 </h2>
                 <div id="helpPassword" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
                     <div class="accordion-body">
-                        <p>Click your <strong>username</strong> in the navigation bar to access the password change form. You need to enter your current password and the new password twice.</p>
+                        <p>Click your <strong>username</strong> in the navigation bar to open the password change modal. Enter your current password and the new password twice.</p>
                     </div>
                 </div>
             </div>

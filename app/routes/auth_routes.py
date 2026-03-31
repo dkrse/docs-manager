@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -65,3 +65,24 @@ async def change_password(
     db.commit()
     ctx["success"] = "Password changed successfully"
     return templates.TemplateResponse("change_password.html", ctx)
+
+
+@router.post("/api/change-password", response_class=JSONResponse)
+async def api_change_password(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    form = await request.form()
+    current_password = form.get("current_password", "")
+    new_password = form.get("new_password", "")
+    confirm_password = form.get("confirm_password", "")
+    if not verify_password(current_password, current_user.hashed_password):
+        return JSONResponse({"ok": False, "error": "Current password is incorrect"})
+    if new_password != confirm_password:
+        return JSONResponse({"ok": False, "error": "New passwords do not match"})
+    if len(new_password) < 4:
+        return JSONResponse({"ok": False, "error": "Password must be at least 4 characters"})
+    current_user.hashed_password = hash_password(new_password)
+    db.commit()
+    return JSONResponse({"ok": True})

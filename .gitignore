@@ -60,3 +60,6 @@ coverage.xml
 
 # mypy cache
 .mypy_cache/
+# Vibe Coder project data
+.LLM/
+.venv/

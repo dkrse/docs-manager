@@ -22,19 +22,22 @@ Cloud solutions make up 67%+ of the market. Average monthly cost for a DMS is $4
 
 ### What Document Manager Offers
 - Multi-format (PDF, DOCX, MD, TXT) with in-browser viewing
+- Full-text search (content extraction from all supported formats)
 - Deduplication (SHA-256)
-- Metadata, categories, hashtags
-- Live search (diacritics-insensitive)
+- Metadata, categories, hashtags, favorites
+- Grid/list view with bulk operations
+- Public document sharing (shareable links)
+- Multi-file upload with progress
+- Secure daily-rotating document URLs
 - Light/dark theme
 - Docker deployment
 - Self-hosted (no monthly cloud fees)
+- REST API for documents, settings, upload, search
 
 ### What's Missing Compared to Enterprise Solutions
 - OCR (text recognition from images/scans)
 - Workflow / document approval
 - Document versioning
-- Full-text search (file contents)
-- API for external integrations (REST API is partial)
 - Audit log
 - Multi-tenant architecture
 - S3/object storage support
@@ -102,7 +105,7 @@ The most suitable model depends on the target audience:
 2. **For small businesses** - One-time license $99-299
 3. **For broader market** - SaaS at $8-15/user/month (requires hosting infrastructure)
 
-To increase value and justify a higher price, the following features would need to be added: OCR, versioning, full-text search, audit log.
+To increase value and justify a higher price, the following features would need to be added: OCR, versioning, audit log.
 
 ## Sources
 

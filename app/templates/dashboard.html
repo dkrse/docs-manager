@@ -1,18 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - Document Manager{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h4>Documents <span class="badge bg-secondary" id="totalBadge">0</span></h4>
+<div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+    <h4 class="mb-0">Documents <span class="badge bg-secondary" id="totalBadge">0</span></h4>
+    <div class="flex-grow-1 d-flex justify-content-center">
+        <div class="d-flex gap-2" style="width:100%;max-width:450px;">
+            <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search..." autocomplete="off" name="search_nofill">
+            <button class="btn btn-outline-info btn-sm" id="searchDetailsBtn" style="display:none;" onclick="openSearchDetails()" title="Show matches in context">
+                <i class="bi bi-info-circle"></i>
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#filterPanel" aria-expanded="false" aria-controls="filterPanel">
+                <i class="bi bi-funnel"></i> Filter
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="viewToggle" onclick="toggleView()" title="Toggle grid/list view">
+                <i class="bi bi-list"></i>
+            </button>
+        </div>
+    </div>
     {% if not user.is_admin %}
-    <a href="/upload" class="btn btn-primary btn-sm"><i class="bi bi-upload"></i> Upload</a>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal"><i class="bi bi-upload"></i> Upload</button>
     {% endif %}
-</div>
-
-<div class="d-flex gap-2 mb-2">
-    <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search..." style="max-width:400px;">
-    <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#filterPanel" aria-expanded="false" aria-controls="filterPanel">
-        <i class="bi bi-funnel"></i> Filter
-    </button>
 </div>
 <div class="collapse mb-3" id="filterPanel">
     <div class="card card-body p-2">
@@ -49,6 +56,13 @@
                 </select>
             </div>
             <div>
+                <label class="form-label small mb-0">Favorites</label>
+                <select id="favFilter" class="form-select form-select-sm" style="width:auto;min-width:100px;">
+                    <option value="">All</option>
+                    <option value="1">Favorites only</option>
+                </select>
+            </div>
+            <div>
                 <label class="form-label small mb-0">Doc date</label>
                 <div class="d-flex gap-1">
                     <input type="text" id="docDateFrom" class="form-control form-control-sm" placeholder="From" style="width:110px;">
@@ -64,6 +78,13 @@
             </div>
         </div>
     </div>
+</div>
+
+<div id="bulkBar" class="d-flex align-items-center gap-2 mb-2 p-2 border rounded bg-body-tertiary" style="display:none!important;">
+    <span class="small fw-bold"><span id="bulkCount">0</span> selected</span>
+    <button class="btn btn-outline-success btn-sm" onclick="bulkDownloadZip()"><i class="bi bi-file-zip"></i> ZIP Download</button>
+    <button class="btn btn-outline-danger btn-sm" onclick="bulkDelete()"><i class="bi bi-trash"></i> Delete</button>
+    <button class="btn btn-outline-secondary btn-sm ms-auto" onclick="bulkClear()"><i class="bi bi-x-lg"></i> Clear</button>
 </div>
 
 <div id="documentsGrid"></div>
@@ -85,6 +106,13 @@
                 <iframe id="docModalPdf" width="100%" style="height:70vh; border:none;"></iframe>
             </div>
             <div class="modal-footer py-1">
+                <button id="docModalShare" class="btn btn-sm btn-outline-primary" onclick="toggleShare()"><i class="bi bi-share"></i> Share</button>
+                <div id="docShareLink" class="input-group input-group-sm me-auto" style="display:none;max-width:350px;">
+                    <input type="text" id="docShareUrl" class="form-control form-control-sm" readonly>
+                    <button class="btn btn-outline-secondary" onclick="copyShareUrl()"><i class="bi bi-clipboard"></i></button>
+                    <button class="btn btn-outline-danger" onclick="toggleShare()"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <a id="docModalOpen" href="#" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-box-arrow-up-right"></i> Open</a>
                 <a id="docModalDownload" href="#" class="btn btn-sm btn-success"><i class="bi bi-download"></i> Download</a>
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
@@ -136,6 +164,178 @@
     </div>
 </div>
 
+<!-- Upload Modal -->
+{% if not user.is_admin %}
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-upload"></i> Upload Document</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="uploadError" class="alert alert-danger" style="display:none;"></div>
+                <div id="uploadSuccess" class="alert alert-success" style="display:none;"></div>
+                <div id="uploadProgress" style="display:none;" class="mb-2">
+                    <div class="progress progress-sm"><div class="progress-bar" id="uploadProgressBar" style="width:0%"></div></div>
+                    <small class="text-muted" id="uploadProgressText"></small>
+                </div>
+                <form id="uploadForm">
+                    <div class="mb-2">
+                        <label class="form-label small">Files</label>
+                        <input type="file" name="file" class="form-control form-control-sm" accept=".pdf,.md,.txt,.docx" required id="uploadFile" multiple>
+                        <div class="form-text">PDF, Markdown, Text, Word. Multiple files allowed.</div>
+                    </div>
+                    <div class="mb-2" id="uploadThumbGroup">
+                        <label class="form-label small">Thumbnail Page (PDF)</label>
+                        <input type="number" name="thumbnail_page" class="form-control form-control-sm" value="1" min="1" id="uploadThumbPage">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Category</label>
+                        <input type="text" name="category" class="form-control form-control-sm" id="uploadCategory">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Hashtags (comma-separated)</label>
+                        <input type="text" name="hashtags" class="form-control form-control-sm" id="uploadHashtags">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Description</label>
+                        <textarea name="description" class="form-control form-control-sm" rows="2" id="uploadDescription"></textarea>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Notes</label>
+                        <textarea name="notes" class="form-control form-control-sm" rows="2" id="uploadNotes"></textarea>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Document Date</label>
+                        <input type="text" name="document_date" class="form-control form-control-sm" id="uploadDocDate" placeholder="Select date...">
+                    </div>
+                    <div class="mb-2 form-check">
+                        <input type="checkbox" name="is_private" value="true" class="form-check-input" id="uploadPrivate">
+                        <label class="form-check-label small" for="uploadPrivate">Private</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-sm btn-primary" onclick="submitUpload()"><i class="bi bi-upload"></i> Upload</button>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-key"></i> Change Password</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="cpError" class="alert alert-danger" style="display:none;"></div>
+                <div id="cpSuccess" class="alert alert-success" style="display:none;">Password changed!</div>
+                <div class="mb-2">
+                    <label class="form-label small">Current Password</label>
+                    <input type="password" id="cpCurrent" class="form-control form-control-sm" required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">New Password</label>
+                    <input type="password" id="cpNew" class="form-control form-control-sm" required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Confirm New Password</label>
+                    <input type="password" id="cpConfirm" class="form-control form-control-sm" required>
+                </div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-sm btn-primary" onclick="changePassword()"><i class="bi bi-check-lg"></i> Change</button>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-gear"></i> Settings</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="settingsSuccess" class="text-success small" style="display:none;">Saved!</div>
+                <div class="mb-2">
+                    <label class="form-label small">Theme</label>
+                    <select id="settingsTheme" class="form-select form-select-sm">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Documents per page</label>
+                    <input type="number" id="settingsPageSize" class="form-control form-control-sm" min="5" max="100">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Default sort</label>
+                    <select id="settingsDefaultSort" class="form-select form-select-sm">
+                        <option value="random">Random</option>
+                        <option value="upload_desc">Upload (newest)</option>
+                        <option value="upload_asc">Upload (oldest)</option>
+                        <option value="date_desc">Doc date (newest)</option>
+                        <option value="date_asc">Doc date (oldest)</option>
+                        <option value="size_desc">Size (largest)</option>
+                        <option value="size_asc">Size (smallest)</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">Hidden hashtags</label>
+                    <input type="text" id="settingsHiddenHashtags" class="form-control form-control-sm" placeholder="e.g. archive, draft">
+                    <div class="form-text">Comma-separated. Documents with these hashtags will be hidden.</div>
+                </div>
+                <hr>
+                <label class="form-label small fw-bold">Tile controls visibility</label>
+                <div class="mb-1 form-check">
+                    <input type="checkbox" id="settingsShowEdit" class="form-check-input" checked>
+                    <label class="form-check-label small" for="settingsShowEdit"><i class="bi bi-pencil"></i> Edit</label>
+                </div>
+                <div class="mb-1 form-check">
+                    <input type="checkbox" id="settingsShowDownload" class="form-check-input" checked>
+                    <label class="form-check-label small" for="settingsShowDownload"><i class="bi bi-download"></i> Download</label>
+                </div>
+                <div class="mb-1 form-check">
+                    <input type="checkbox" id="settingsShowDelete" class="form-check-input" checked>
+                    <label class="form-check-label small" for="settingsShowDelete"><i class="bi bi-trash"></i> Delete</label>
+                </div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-sm btn-primary" onclick="saveSettings()"><i class="bi bi-check-lg"></i> Save</button>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search Details Modal -->
+<div class="modal fade" id="searchDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-search"></i> Search results: <span id="searchDetailsQuery"></span></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="searchDetailsBody" class="list-group list-group-flush"></div>
+            </div>
+            <div class="modal-footer py-1">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -143,6 +343,60 @@
 let currentPage = 1;
 let searchTimer = null;
 let editFlatpickr = null;
+let currentView = localStorage.getItem('docViewMode') || 'grid';
+let listSortCol = null;
+let listSortAsc = true;
+
+function toggleView() {
+    currentView = currentView === 'grid' ? 'list' : 'grid';
+    localStorage.setItem('docViewMode', currentView);
+    applyView();
+    loadDocuments();
+}
+
+let lastDocData = null;
+
+let listSortOverride = '';
+
+const listSortMap = {
+    'name': 'name', 'type': 'type', 'size': 'size',
+    'created': 'upload', 'modified': 'modified'
+};
+
+function sortListBy(col) {
+    if (listSortCol === col) {
+        listSortAsc = !listSortAsc;
+    } else {
+        listSortCol = col;
+        listSortAsc = true;
+    }
+    const key = listSortMap[col] || col;
+    listSortOverride = key + (listSortAsc ? '_asc' : '_desc');
+    currentPage = 1;
+    loadDocuments();
+}
+
+function applyView() {
+    const btn = document.getElementById('viewToggle');
+    btn.innerHTML = currentView === 'list' ? '<i class="bi bi-grid"></i>' : '<i class="bi bi-list"></i>';
+}
+
+function toggleFavorite(docId, btn) {
+    fetch('/api/document/' + docId + '/favorite', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                const icon = btn.querySelector('i');
+                if (data.is_favorite) {
+                    btn.classList.add('active');
+                    icon.className = 'bi bi-star-fill';
+                } else {
+                    btn.classList.remove('active');
+                    icon.className = 'bi bi-star';
+                }
+            }
+        });
+}
 
 function formatSize(bytes) {
     if (bytes === 0) return '0 B';
@@ -157,7 +411,8 @@ function getParams() {
         search: document.getElementById('searchInput').value,
         category: document.getElementById('categoryFilter').value,
         file_type: document.getElementById('fileTypeFilter').value,
-        sort: document.getElementById('sortFilter').value,
+        sort: listSortOverride || document.getElementById('sortFilter').value,
+        favorites_only: document.getElementById('favFilter').value,
         page: currentPage,
     };
     const ddf = document.getElementById('docDateFrom').value;
@@ -176,10 +431,27 @@ function loadDocuments() {
     const qs = new URLSearchParams(p).toString();
     fetch('/api/documents?' + qs)
         .then(r => r.json())
-        .then(data => renderDocuments(data));
+        .then(data => {
+            renderDocuments(data);
+            applyView();
+            const searchVal = document.getElementById('searchInput').value.trim();
+            document.getElementById('searchDetailsBtn').style.display = (searchVal && data.total > 0) ? '' : 'none';
+        });
 }
 
+const reverseSortMap = {
+    'name_asc': ['name',true], 'name_desc': ['name',false],
+    'type_asc': ['type',true], 'type_desc': ['type',false],
+    'size_asc': ['size',true], 'size_desc': ['size',false],
+    'upload_asc': ['created',true], 'upload_desc': ['created',false],
+    'modified_asc': ['modified',true], 'modified_desc': ['modified',false],
+};
+
 function renderDocuments(data) {
+    lastDocData = data;
+    const rm = reverseSortMap[data.sort];
+    if (rm) { listSortCol = rm[0]; listSortAsc = rm[1]; }
+    else if (!listSortCol) { listSortCol = null; }
     const grid = document.getElementById('documentsGrid');
     document.getElementById('totalBadge').textContent = data.total;
 
@@ -192,37 +464,86 @@ function renderDocuments(data) {
     }
 
     let html = '';
-    data.documents.forEach(doc => {
-        const privateBadge = doc.is_private ? `<span class="badge bg-warning text-dark badge-sm"><i class="bi bi-lock"></i></span>` : '';
-        const canDelete = data.is_admin || doc.uploaded_by === data.user_id;
-        const canEdit = data.is_admin || doc.uploaded_by === data.user_id;
-        const deleteBtn = canDelete ? `<form method="post" action="/document/${doc.id}/delete" class="d-inline" onsubmit="return confirm('Delete?')"><button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button></form>` : '';
-        const editBtn = canEdit ? `<button onclick="openEditModal(${doc.id})" class="btn btn-outline-warning btn-sm"><i class="bi bi-pencil"></i></button>` : '';
-        const iconMap = {'.pdf':'bi-file-earmark-pdf text-danger', '.md':'bi-file-earmark-text text-info', '.txt':'bi-file-earmark-text text-secondary', '.docx':'bi-file-earmark-word text-primary'};
-        const fileIcon = iconMap[doc.file_extension] || 'bi-file-earmark text-muted';
-        const thumbSrc = doc.has_thumbnail ? `/document/${doc.id}/thumbnail` : '';
-        const thumbImg = thumbSrc
-            ? `<img src="${thumbSrc}" class="doc-thumb-img" alt="Preview">`
-            : `<div class="doc-thumb-placeholder"><i class="bi ${fileIcon}"></i></div>`;
-        const fname = doc.original_filename.length > 18 ? doc.original_filename.substring(0, 16) + '...' : doc.original_filename;
+    const isListView = currentView === 'list';
 
-        html += `<div class="doc-tile-wrap">
-            <div class="doc-tile" title="${doc.original_filename}">
-                <a href="#" onclick="openDocModal(${doc.id}); return false;" class="text-decoration-none">
-                    ${thumbImg}
-                </a>
-                <div class="doc-tile-info">
-                    <div class="doc-tile-name">${fname} ${privateBadge}</div>
-                    <div class="doc-tile-meta">${doc.uploaded_at} | ${formatSize(doc.file_size)}</div>
+    if (isListView) {
+        const sortIcon = (col) => {
+            if (listSortCol !== col) return '';
+            return listSortAsc ? ' <i class="bi bi-caret-up-fill small"></i>' : ' <i class="bi bi-caret-down-fill small"></i>';
+        };
+        const sh = (col, label, w) => `<th style="width:${w};cursor:pointer;user-select:none;" onclick="sortListBy('${col}')">${label}${sortIcon(col)}</th>`;
+        html += `<table class="table table-sm table-hover align-middle mb-0">
+            <thead><tr>
+                <th style="width:30px;"><input type="checkbox" id="bulkCheckAll" onchange="toggleAllChecks(this)"></th>
+                <th style="width:30px;"></th>
+                ${sh('name','Name','')}
+                ${sh('type','Type','80px')}
+                ${sh('size','Size','90px')}
+                ${sh('created','Created','110px')}
+                ${sh('modified','Modified','140px')}
+                <th style="width:140px;">Actions</th>
+            </tr></thead><tbody>`;
+        data.documents.forEach(doc => {
+            const canDelete = data.show_delete && (data.is_admin || doc.uploaded_by === data.user_id);
+            const canEdit = data.show_edit && (data.is_admin || doc.uploaded_by === data.user_id);
+            const deleteBtn = canDelete ? `<form method="post" action="/document/${doc.id}/delete" class="d-inline" onsubmit="return confirm('Delete?')"><button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button></form>` : '';
+            const editBtn = canEdit ? `<button onclick="openEditModal(${doc.id})" class="btn btn-outline-warning btn-sm"><i class="bi bi-pencil"></i></button>` : '';
+            const downloadBtn = data.show_download ? `<a href="/document/${doc.id}/download" class="btn btn-outline-success btn-sm"><i class="bi bi-download"></i></a>` : '';
+            const favClass = doc.is_favorite ? 'active' : '';
+            const favIcon = doc.is_favorite ? 'bi-star-fill' : 'bi-star';
+            const privateBadge = doc.is_private ? ` <i class="bi bi-lock text-warning"></i>` : '';
+            const ext = (doc.file_extension || '').replace('.','').toUpperCase();
+            html += `<tr>
+                <td><input type="checkbox" class="bulk-check" data-id="${doc.id}" onchange="updateBulkBar()"></td>
+                <td><button class="btn btn-sm p-0 border-0 fav-btn-list ${favClass}" onclick="toggleFavorite(${doc.id}, this)"><i class="bi ${favIcon}"></i></button></td>
+                <td><a href="#" onclick="openDocModal(${doc.id}); return false;" class="text-decoration-none">${doc.original_filename}</a>${privateBadge}</td>
+                <td><span class="badge bg-secondary">${ext}</span></td>
+                <td>${formatSize(doc.file_size)}</td>
+                <td>${doc.uploaded_at}</td>
+                <td>${doc.updated_at || ''}</td>
+                <td class="d-flex gap-1">${editBtn}${downloadBtn}${deleteBtn}</td>
+            </tr>`;
+        });
+        html += `</tbody></table>`;
+    } else {
+        data.documents.forEach(doc => {
+            const privateBadge = doc.is_private ? `<span class="badge bg-warning text-dark badge-sm"><i class="bi bi-lock"></i></span>` : '';
+            const canDelete = data.show_delete && (data.is_admin || doc.uploaded_by === data.user_id);
+            const canEdit = data.show_edit && (data.is_admin || doc.uploaded_by === data.user_id);
+            const deleteBtn = canDelete ? `<form method="post" action="/document/${doc.id}/delete" class="d-inline" onsubmit="return confirm('Delete?')"><button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button></form>` : '';
+            const editBtn = canEdit ? `<button onclick="openEditModal(${doc.id})" class="btn btn-outline-warning btn-sm"><i class="bi bi-pencil"></i></button>` : '';
+            const downloadBtn = data.show_download ? `<a href="/document/${doc.id}/download" class="btn btn-outline-success btn-sm"><i class="bi bi-download"></i></a>` : '';
+            const favClass = doc.is_favorite ? 'active' : '';
+            const favIcon = doc.is_favorite ? 'bi-star-fill' : 'bi-star';
+            const favBtn = `<button class="fav-btn ${favClass}" onclick="toggleFavorite(${doc.id}, this); event.stopPropagation();"><i class="bi ${favIcon}"></i></button>`;
+            const iconMap = {'.pdf':'bi-file-earmark-pdf text-danger', '.md':'bi-file-earmark-text text-info', '.txt':'bi-file-earmark-text text-secondary', '.docx':'bi-file-earmark-word text-primary'};
+            const fileIcon = iconMap[doc.file_extension] || 'bi-file-earmark text-muted';
+            const thumbSrc = doc.has_thumbnail ? `/document/${doc.id}/thumbnail` : '';
+            const thumbImg = thumbSrc
+                ? `<img src="${thumbSrc}" class="doc-thumb-img" alt="Preview">`
+                : `<div class="doc-thumb-placeholder"><i class="bi ${fileIcon}"></i></div>`;
+            const fname = doc.original_filename.length > 18 ? doc.original_filename.substring(0, 16) + '...' : doc.original_filename;
+            const hasActions = editBtn || downloadBtn || deleteBtn;
+
+            html += `<div class="doc-tile-wrap">
+                <div class="doc-tile" title="${doc.original_filename}">
+                    <input type="checkbox" class="bulk-check" data-id="${doc.id}" onchange="updateBulkBar()" title="Select">
+                    <a href="#" onclick="openDocModal(${doc.id}); return false;" class="text-decoration-none">
+                        ${thumbImg}
+                    </a>
+                    ${favBtn}
+                    ${hasActions ? `<div class="doc-tile-actions">
+                        ${editBtn}
+                        ${downloadBtn}
+                        ${deleteBtn}
+                    </div>` : ''}
                 </div>
-                <div class="doc-tile-actions">
-                    ${editBtn}
-                    <a href="/document/${doc.id}/download" class="btn btn-outline-success btn-sm"><i class="bi bi-download"></i></a>
-                    ${deleteBtn}
+                <div class="doc-tile-label" title="${doc.original_filename}">
+                    ${fname} ${privateBadge}
                 </div>
-            </div>
-        </div>`;
-    });
+            </div>`;
+        });
+    }
     grid.innerHTML = html;
 
     const nav = document.getElementById('paginationNav');
@@ -247,17 +568,28 @@ function goPage(p) {
 }
 
 function openDocModal(docId) {
+    currentDocModalId = docId;
     fetch('/document/' + docId + '/info')
         .then(r => r.json())
         .then(info => {
             document.getElementById('docModalTitle').textContent = info.original_filename;
-            const ext = (info.file_extension || '.pdf').toLowerCase();
-            if (ext === '.pdf') {
-                document.getElementById('docModalPdf').src = '/document/' + docId + '/pdf';
+            if (info.share_token) {
+                document.getElementById('docShareUrl').value = window.location.origin + '/shared/' + info.share_token + '/view';
+                document.getElementById('docShareLink').style.display = '';
+                document.getElementById('docModalShare').style.display = 'none';
             } else {
-                document.getElementById('docModalPdf').src = '/document/' + docId + '/render';
+                document.getElementById('docShareLink').style.display = 'none';
+                document.getElementById('docModalShare').style.display = '';
+            }
+            const ext = (info.file_extension || '.pdf').toLowerCase();
+            const dh = info.doc_hash;
+            if (ext === '.pdf') {
+                document.getElementById('docModalPdf').src = '/v/' + dh + '/pdf';
+            } else {
+                document.getElementById('docModalPdf').src = '/v/' + dh + '/render';
             }
             document.getElementById('docModalDownload').href = '/document/' + docId + '/download';
+            document.getElementById('docModalOpen').href = ext === '.pdf' ? '/v/' + dh + '/pdf' : '/v/' + dh + '/render';
             let meta = '';
             if (info.description) meta += `<div class="col-12"><strong>Description:</strong> ${info.description}</div>`;
             if (info.category) meta += `<div class="col-auto"><strong>Category:</strong> <span class="badge bg-info">${info.category}</span></div>`;
@@ -319,8 +651,14 @@ document.getElementById('searchInput').addEventListener('input', () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => { currentPage = 1; loadDocuments(); }, 300);
 });
-['categoryFilter', 'fileTypeFilter', 'sortFilter'].forEach(id => {
+['categoryFilter', 'fileTypeFilter', 'favFilter'].forEach(id => {
     document.getElementById(id).addEventListener('change', () => { currentPage = 1; loadDocuments(); });
+});
+document.getElementById('sortFilter').addEventListener('change', () => {
+    listSortOverride = '';
+    listSortCol = null;
+    currentPage = 1;
+    loadDocuments();
 });
 
 // Init flatpickr on date filter inputs (Slovak locale)
@@ -333,6 +671,305 @@ flatpickr('#uploadDateTo', fpOpts);
 document.getElementById('docModal').addEventListener('hidden.bs.modal', () => {
     document.getElementById('docModalPdf').src = '';
 });
+
+// Upload modal
+{% if not user.is_admin %}
+document.getElementById('uploadFile').addEventListener('change', function() {
+    const files = this.files;
+    let hasPdf = false;
+    for (let i = 0; i < files.length; i++) {
+        if (files[i].name.toLowerCase().endsWith('.pdf')) hasPdf = true;
+    }
+    document.getElementById('uploadThumbGroup').style.display = hasPdf ? '' : 'none';
+});
+document.getElementById('uploadModal').addEventListener('shown.bs.modal', () => {
+    flatpickr('#uploadDocDate', { dateFormat: 'Y-m-d', allowInput: true });
+});
+document.getElementById('uploadModal').addEventListener('hidden.bs.modal', () => {
+    document.getElementById('uploadForm').reset();
+    document.getElementById('uploadError').style.display = 'none';
+    document.getElementById('uploadSuccess').style.display = 'none';
+    document.getElementById('uploadProgress').style.display = 'none';
+});
+
+async function submitUpload() {
+    const fileInput = document.getElementById('uploadFile');
+    if (!fileInput.files.length) {
+        document.getElementById('uploadError').textContent = 'Please select a file.';
+        document.getElementById('uploadError').style.display = '';
+        return;
+    }
+    const files = fileInput.files;
+    const total = files.length;
+    const category = document.getElementById('uploadCategory').value;
+    const hashtags = document.getElementById('uploadHashtags').value;
+    const description = document.getElementById('uploadDescription').value;
+    const notes = document.getElementById('uploadNotes').value;
+    const docDate = document.getElementById('uploadDocDate').value;
+    const thumbPage = document.getElementById('uploadThumbPage').value;
+    const isPrivate = document.getElementById('uploadPrivate').checked;
+
+    document.getElementById('uploadError').style.display = 'none';
+    document.getElementById('uploadSuccess').style.display = 'none';
+    document.getElementById('uploadProgress').style.display = '';
+
+    let ok = 0;
+    let errors = [];
+    for (let i = 0; i < total; i++) {
+        document.getElementById('uploadProgressText').textContent = `Uploading ${i+1} / ${total}: ${files[i].name}`;
+        document.getElementById('uploadProgressBar').style.width = Math.round(((i) / total) * 100) + '%';
+
+        const fd = new FormData();
+        fd.append('file', files[i]);
+        fd.append('category', category);
+        fd.append('hashtags', hashtags);
+        fd.append('description', description);
+        fd.append('notes', notes);
+        fd.append('document_date', docDate || '');
+        fd.append('thumbnail_page', thumbPage);
+        fd.append('is_private', isPrivate ? 'true' : 'false');
+
+        try {
+            const r = await fetch('/api/upload', { method: 'POST', body: fd });
+            const data = await r.json();
+            if (data.ok) {
+                ok++;
+            } else {
+                errors.push(data.error || files[i].name);
+            }
+        } catch (e) {
+            errors.push(files[i].name + ': network error');
+        }
+    }
+    document.getElementById('uploadProgressBar').style.width = '100%';
+    document.getElementById('uploadProgressText').textContent = '';
+
+    if (ok > 0) {
+        document.getElementById('uploadSuccess').textContent = `Uploaded ${ok} of ${total} file(s).`;
+        document.getElementById('uploadSuccess').style.display = '';
+    }
+    if (errors.length > 0) {
+        document.getElementById('uploadError').innerHTML = errors.join('<br>');
+        document.getElementById('uploadError').style.display = '';
+    }
+    if (ok > 0) {
+        setTimeout(() => {
+            bootstrap.Modal.getInstance(document.getElementById('uploadModal')).hide();
+            loadDocuments();
+        }, 1000);
+    }
+}
+{% endif %}
+
+// Change password modal
+document.getElementById('changePasswordModal').addEventListener('hidden.bs.modal', () => {
+    document.getElementById('cpCurrent').value = '';
+    document.getElementById('cpNew').value = '';
+    document.getElementById('cpConfirm').value = '';
+    document.getElementById('cpError').style.display = 'none';
+    document.getElementById('cpSuccess').style.display = 'none';
+});
+
+function changePassword() {
+    const formData = new FormData();
+    formData.append('current_password', document.getElementById('cpCurrent').value);
+    formData.append('new_password', document.getElementById('cpNew').value);
+    formData.append('confirm_password', document.getElementById('cpConfirm').value);
+    document.getElementById('cpError').style.display = 'none';
+    fetch('/api/change-password', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                document.getElementById('cpSuccess').style.display = '';
+                setTimeout(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+                }, 1000);
+            } else {
+                document.getElementById('cpError').textContent = data.error;
+                document.getElementById('cpError').style.display = '';
+            }
+        });
+}
+
+// Settings modal
+document.getElementById('settingsModal').addEventListener('shown.bs.modal', () => {
+    fetch('/api/settings').then(r => r.json()).then(s => {
+        document.getElementById('settingsTheme').value = s.theme;
+        document.getElementById('settingsPageSize').value = s.page_size;
+        document.getElementById('settingsDefaultSort').value = s.default_sort;
+        document.getElementById('settingsHiddenHashtags').value = s.hidden_hashtags;
+        document.getElementById('settingsShowEdit').checked = s.show_edit;
+        document.getElementById('settingsShowDownload').checked = s.show_download;
+        document.getElementById('settingsShowDelete').checked = s.show_delete;
+    });
+});
+
+function saveSettings() {
+    const formData = new FormData();
+    formData.append('theme', document.getElementById('settingsTheme').value);
+    formData.append('page_size', document.getElementById('settingsPageSize').value);
+    formData.append('default_sort', document.getElementById('settingsDefaultSort').value);
+    formData.append('hidden_hashtags', document.getElementById('settingsHiddenHashtags').value);
+    formData.append('show_edit', document.getElementById('settingsShowEdit').checked ? 'true' : 'false');
+    formData.append('show_download', document.getElementById('settingsShowDownload').checked ? 'true' : 'false');
+    formData.append('show_delete', document.getElementById('settingsShowDelete').checked ? 'true' : 'false');
+    fetch('/api/settings', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                const newTheme = document.getElementById('settingsTheme').value;
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                document.getElementById('settingsSuccess').style.display = '';
+                setTimeout(() => {
+                    document.getElementById('settingsSuccess').style.display = 'none';
+                    bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
+                    loadDocuments();
+                }, 600);
+            }
+        });
+}
+
+// Bulk operations
+let currentDocModalId = null;
+
+function getSelectedIds() {
+    return [...document.querySelectorAll('.bulk-check:checked')].map(cb => parseInt(cb.dataset.id));
+}
+
+function toggleAllChecks(master) {
+    document.querySelectorAll('.bulk-check').forEach(cb => cb.checked = master.checked);
+    updateBulkBar();
+}
+
+function updateBulkBar() {
+    const ids = getSelectedIds();
+    const bar = document.getElementById('bulkBar');
+    if (ids.length > 0) {
+        bar.style.cssText = '';
+        document.getElementById('bulkCount').textContent = ids.length;
+    } else {
+        bar.style.cssText = 'display:none!important';
+    }
+}
+
+function bulkClear() {
+    document.querySelectorAll('.bulk-check:checked').forEach(cb => cb.checked = false);
+    updateBulkBar();
+}
+
+function bulkDelete() {
+    const ids = getSelectedIds();
+    if (!ids.length || !confirm(`Delete ${ids.length} document(s)?`)) return;
+    fetch('/api/bulk-delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids})
+    }).then(r => r.json()).then(data => {
+        if (data.ok) loadDocuments();
+    });
+}
+
+function bulkDownloadZip() {
+    const ids = getSelectedIds();
+    if (!ids.length) return;
+    fetch('/api/bulk-zip', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids})
+    }).then(r => r.blob()).then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'documents.zip';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+}
+
+// Share link
+function copyShareUrl() {
+    const input = document.getElementById('docShareUrl');
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(input.value);
+    } else {
+        input.select();
+        document.execCommand('copy');
+    }
+    const btn = input.nextElementSibling;
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check-lg text-success"></i>';
+    setTimeout(() => btn.innerHTML = orig, 1500);
+}
+
+function toggleShare() {
+    if (!currentDocModalId) return;
+    fetch('/api/document/' + currentDocModalId + '/share', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                if (data.share_token) {
+                    const url = window.location.origin + '/shared/' + data.share_token + '/view';
+                    document.getElementById('docShareUrl').value = url;
+                    document.getElementById('docShareLink').style.display = '';
+                    document.getElementById('docModalShare').style.display = 'none';
+                } else {
+                    document.getElementById('docShareLink').style.display = 'none';
+                    document.getElementById('docModalShare').style.display = '';
+                }
+            }
+        });
+}
+
+function openSearchDetails() {
+    const q = document.getElementById('searchInput').value.trim();
+    if (!q) return;
+    document.getElementById('searchDetailsQuery').textContent = '"' + q + '"';
+    document.getElementById('searchDetailsBody').innerHTML = '<div class="p-3 text-center text-muted">Loading...</div>';
+    new bootstrap.Modal(document.getElementById('searchDetailsModal')).show();
+
+    fetch('/api/search-context?search=' + encodeURIComponent(q))
+        .then(r => r.json())
+        .then(data => {
+            const body = document.getElementById('searchDetailsBody');
+            if (!data.results.length) {
+                body.innerHTML = '<div class="p-3 text-muted">No matches found.</div>';
+                return;
+            }
+            const ql = q.toLowerCase();
+            let html = '';
+            data.results.forEach(r => {
+                const fieldLabel = r.match_field === 'content' ? '' : `<span class="badge bg-secondary me-1">${r.match_field}</span>`;
+                // Highlight match in line
+                let line = r.match_line;
+                if (line) {
+                    const idx = line.toLowerCase().indexOf(ql);
+                    if (idx >= 0) {
+                        const before = line.substring(0, idx);
+                        const match = line.substring(idx, idx + q.length);
+                        const after = line.substring(idx + q.length);
+                        line = escapeHtml(before) + '<mark>' + escapeHtml(match) + '</mark>' + escapeHtml(after);
+                    } else {
+                        line = escapeHtml(line);
+                    }
+                }
+                const ext = (r.file_extension || '').replace('.','').toUpperCase();
+                html += `<a href="#" onclick="bootstrap.Modal.getInstance(document.getElementById('searchDetailsModal')).hide(); openDocModal(${r.id}); return false;" class="list-group-item list-group-item-action">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <strong class="small">${escapeHtml(r.original_filename)}</strong>
+                        <span class="badge bg-secondary">${ext}</span>
+                    </div>
+                    <div class="small text-muted mt-1">${fieldLabel}<code class="text-wrap">${line || '<em>no preview</em>'}</code></div>
+                </a>`;
+            });
+            body.innerHTML = html;
+        });
+}
+
+function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
 
 loadDocuments();
 </script>
