@@ -9,8 +9,5 @@ services:
     env_file:
       - .env
     volumes:
-      - doc-uploads:/opt/apps/document-manager/uploads
+      - /mnt/data/media/document-manager/uploads:/opt/apps/document-manager/uploads
     restart: unless-stopped
-
-volumes:
-  doc-uploads:

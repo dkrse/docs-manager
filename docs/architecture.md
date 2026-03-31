@@ -52,7 +52,7 @@ Document Manager is a FastAPI web application for managing documents (PDF, DOCX,
 │       ├── css/              # Bootstrap, Bootstrap Icons, Flatpickr, custom
 │       ├── js/               # Bootstrap, Flatpickr
 │       └── fonts/            # Bootstrap Icons woff/woff2
-├── uploads/                  # Document storage (SHA-256 hash filenames)
+├── uploads/                  # Bind mount → /mnt/data/media/document-manager/uploads/
 │   └── thumbnails/           # PDF page thumbnails (PNG)
 ├── docs/
 ├── requirements.txt
@@ -65,10 +65,11 @@ Document Manager is a FastAPI web application for managing documents (PDF, DOCX,
 
 ## File Storage
 
-Documents are stored on disk using their **SHA-256 content hash** as filename (no extension). This:
+Documents are stored on an external HDD at `/mnt/data/media/document-manager/uploads/`, bind-mounted into the Docker container. Files use their **SHA-256 content hash** as filename (no extension). This:
 - Prevents duplicate files (same content = same hash)
 - Decouples storage from original filenames
 - Original filename, extension stored in DB
+- Data persists independently of the container lifecycle
 
 ## Authentication Flow
 

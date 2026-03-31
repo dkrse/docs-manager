@@ -105,7 +105,11 @@
             </div>
             <div class="modal-body">
                 <div class="row g-1 mb-2 small" id="docModalMeta"></div>
-                <iframe id="docModalPdf" width="100%" style="height:70vh; border:none;"></iframe>
+                <div id="docModalSpinner" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted small mt-2">Loading document...</p>
+                </div>
+                <iframe id="docModalPdf" width="100%" style="height:70vh; border:none; display:none;" onload="document.getElementById('docModalSpinner').style.display='none'; this.style.display='';"></iframe>
             </div>
             <div class="modal-footer py-1">
                 <button id="docModalShare" class="btn btn-sm btn-outline-primary" onclick="toggleShare()"><i class="bi bi-share"></i> Share</button>
@@ -595,6 +599,8 @@ function openDocModal(docId) {
             }
             const ext = (info.file_extension || '.pdf').toLowerCase();
             const dh = info.doc_hash;
+            document.getElementById('docModalSpinner').style.display = '';
+            document.getElementById('docModalPdf').style.display = 'none';
             if (ext === '.pdf') {
                 document.getElementById('docModalPdf').src = '/v/' + dh + '/pdf';
             } else {
@@ -682,6 +688,8 @@ flatpickr('#uploadDateTo', fpOpts);
 
 document.getElementById('docModal').addEventListener('hidden.bs.modal', () => {
     document.getElementById('docModalPdf').src = '';
+    document.getElementById('docModalPdf').style.display = 'none';
+    document.getElementById('docModalSpinner').style.display = '';
 });
 
 // Upload modal

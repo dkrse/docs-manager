@@ -32,6 +32,8 @@
 - Local timezone support (TZ environment variable)
 - N+1 query optimization — batch user lookups and bulk operations use IN() queries
 - `.env` file support in docker-compose.yml
+- File storage moved to external HDD via bind mount (`/mnt/data/media/document-manager/uploads/`)
+- Docker volume replaced with bind mount for direct HDD access
 
 ---
 

@@ -71,13 +71,26 @@ All configuration is via environment variables (loaded from `.env` file by Docke
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | **Yes** | — | PostgreSQL connection string |
 | `SECRET_KEY` | **Yes** | auto-generated | JWT signing key (must be set for persistent sessions) |
-| `UPLOAD_DIR` | No | `/opt/apps/document-manager/uploads` | File storage path |
+| `UPLOAD_DIR` | No | `/opt/apps/document-manager/uploads` | File storage path (inside container) |
 | `MAX_UPLOAD_SIZE` | No | `104857600` (100MB) | Maximum upload file size in bytes |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No | `480` | Session duration |
 | `TZ` | No | `UTC` | Container timezone (e.g. `Europe/Bratislava`) |
 | `RELOAD` | No | `false` | Enable uvicorn auto-reload |
 
 **Never commit `.env` to git** — it is in `.gitignore`.
+
+## Storage
+
+Document files and thumbnails are stored on an external HDD via bind mount:
+
+```
+Host: /mnt/data/media/document-manager/uploads/
+  ├── <sha256-hash>          # document files (no extension)
+  └── thumbnails/
+      └── <sha256-hash>.png  # PDF page thumbnails
+```
+
+The bind mount is configured in `docker-compose.yml`. The `UPLOAD_DIR` env variable sets the path inside the container.
 
 ## Default Login
 

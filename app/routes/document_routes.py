@@ -196,35 +196,54 @@ def _sanitize_html(html_str: str) -> str:
     return html_str
 
 
+_MAX_PREVIEW_ROWS = 500
+
+
 def xlsx_to_html(file_path: str) -> str:
     with open(file_path, "rb") as fxl:
         wb = openpyxl.load_workbook(fxl, data_only=True)
     html_parts = []
+    total_rows = 0
+    truncated = False
     for ws in wb.worksheets:
         html_parts.append(f"<h5>{_esc(ws.title)}</h5>")
         html_parts.append("<table class='table table-bordered table-sm table-striped'>")
         for i, row in enumerate(ws.iter_rows(values_only=True)):
+            if total_rows >= _MAX_PREVIEW_ROWS:
+                truncated = True
+                break
             tag = "th" if i == 0 else "td"
             html_parts.append("<tr>")
             for cell in row:
                 html_parts.append(f"<{tag}>{_esc(str(cell)) if cell is not None else ''}</{tag}>")
             html_parts.append("</tr>")
+            total_rows += 1
         html_parts.append("</table>")
+        if truncated:
+            break
     wb.close()
+    if truncated:
+        html_parts.append(f"<div class='alert alert-warning small'><i class='bi bi-exclamation-triangle'></i> Preview limited to {_MAX_PREVIEW_ROWS} rows. Download the file to see all data.</div>")
     return "\n".join(html_parts)
 
 
 def csv_to_html(file_path: str) -> str:
     html_parts = ["<table class='table table-bordered table-sm table-striped'>"]
+    truncated = False
     with open(file_path, "r", encoding="utf-8", errors="replace") as f:
         reader = csv.reader(f)
         for i, row in enumerate(reader):
+            if i >= _MAX_PREVIEW_ROWS:
+                truncated = True
+                break
             tag = "th" if i == 0 else "td"
             html_parts.append("<tr>")
             for cell in row:
                 html_parts.append(f"<{tag}>{_esc(cell)}</{tag}>")
             html_parts.append("</tr>")
     html_parts.append("</table>")
+    if truncated:
+        html_parts.append(f"<div class='alert alert-warning small'><i class='bi bi-exclamation-triangle'></i> Preview limited to {_MAX_PREVIEW_ROWS} rows. Download the file to see all data.</div>")
     return "\n".join(html_parts)
 
 
