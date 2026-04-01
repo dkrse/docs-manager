@@ -2,6 +2,27 @@
 
 **Author:** krse
 
+## v2.2.0 - Search Overhaul, Markdown Enhancements & File Size Filter
+
+### Markdown Rendering
+- **Mermaid diagrams**: fenced code blocks with `mermaid` language are rendered as diagrams (offline, mermaid.min.js served locally)
+- **KaTeX LaTeX formulas**: inline (`$...$`) and display (`$$...$$`) math formulas rendered via KaTeX (offline, all fonts and JS served locally)
+- Both features work in authenticated views and public shared links
+
+### Search Redesign
+- **Metadata-only main search**: main search bar now searches only metadata (filename, description, notes, hashtags) — no longer searches file content, making it significantly faster
+- **Deferred content column**: `Document.content` is now a deferred column in SQLAlchemy, not loaded in main document queries — reduces memory usage and query time
+- **File content search modal**: new dedicated "in files" button opens a modal with its own search input for searching inside document content
+- **Real-time SSE progress**: file content search uses Server-Sent Events to stream progress — shows the filename of each document being searched and results appear incrementally as found
+- **Filter-aware file search**: file content search respects all active dashboard filters (category, file type, dates, size, favorites, hidden hashtags)
+- **Main list filtering**: after file content search completes, the main document list is automatically filtered to show only matched documents
+- **Search spinner**: loading spinner displayed in the search input during metadata search
+
+### New Filter
+- **File size filter (KB)**: new from/to fields in the filter panel to filter documents by file size in kilobytes — applies to both main list and file content search
+
+---
+
 ## v2.1.0 - Security Hardening, XLSX/CSV Support & Fixes
 
 ### New File Format Support

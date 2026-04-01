@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, deferred
 from datetime import datetime, timezone
 from app.database import Base
 
@@ -56,7 +56,7 @@ class Document(Base):
     file_size = Column(Integer, default=0)
     document_date = Column(DateTime, nullable=True)
     content_hash = Column(String(64), nullable=False, index=True)
-    content = Column(Text, default="")
+    content = deferred(Column(Text, default=""))
     share_token = Column(String(64), nullable=True, unique=True, index=True)
 
     uploader = relationship("User", back_populates="documents")

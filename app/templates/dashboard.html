@@ -5,9 +5,12 @@
     <h4 class="mb-0">Documents <span class="badge bg-secondary" id="totalBadge">0</span></h4>
     <div class="flex-grow-1 d-flex justify-content-center">
         <div class="d-flex gap-2" style="width:100%;max-width:450px;">
-            <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search..." autocomplete="off" name="search_nofill">
-            <button class="btn btn-outline-info btn-sm" id="searchDetailsBtn" style="display:none;" onclick="openSearchDetails()" title="Show matches in context">
-                <i class="bi bi-info-circle"></i>
+            <div class="position-relative flex-grow-1">
+                <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search..." autocomplete="off" name="search_nofill">
+                <span id="searchSpinner" class="position-absolute top-50 translate-middle-y spinner-border spinner-border-sm text-muted" style="right:8px;display:none;width:1rem;height:1rem;"></span>
+            </div>
+            <button class="btn btn-outline-info btn-sm" onclick="openFileSearch()" title="Search in file contents">
+                <i class="bi bi-file-earmark-text"></i> in files
             </button>
             <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#filterPanel" aria-expanded="false" aria-controls="filterPanel">
                 <i class="bi bi-funnel"></i> Filter
@@ -76,6 +79,13 @@
                 <div class="d-flex gap-1">
                     <input type="text" id="uploadDateFrom" class="form-control form-control-sm" placeholder="From" style="width:110px;">
                     <input type="text" id="uploadDateTo" class="form-control form-control-sm" placeholder="To" style="width:110px;">
+                </div>
+            </div>
+            <div>
+                <label class="form-label small mb-0">Size (KB)</label>
+                <div class="d-flex gap-1">
+                    <input type="number" id="sizeFrom" class="form-control form-control-sm" placeholder="From" style="width:90px;" min="0">
+                    <input type="number" id="sizeTo" class="form-control form-control-sm" placeholder="To" style="width:90px;" min="0">
                 </div>
             </div>
         </div>
@@ -331,15 +341,22 @@
 </div>
 
 <!-- Search Details Modal -->
-<div class="modal fade" id="searchDetailsModal" tabindex="-1">
+<div class="modal fade" id="fileSearchModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
+        <div class="modal-content" style="min-height:55vh;">
             <div class="modal-header py-2">
-                <h6 class="modal-title"><i class="bi bi-search"></i> Search results: <span id="searchDetailsQuery"></span></h6>
+                <h6 class="modal-title"><i class="bi bi-file-earmark-text"></i> Search in files</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-0">
-                <div id="searchDetailsBody" class="list-group list-group-flush"></div>
+            <div class="modal-body">
+                <div class="d-flex gap-2 mb-3">
+                    <input type="text" id="fileSearchInput" class="form-control form-control-sm" placeholder="Enter search term..." autocomplete="off">
+                    <button class="btn btn-primary btn-sm" id="fileSearchBtn" onclick="runFileSearch()" style="min-width:90px;">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+                <div id="fileSearchStatus" class="text-muted small mb-2" style="display:none;"></div>
+                <div id="fileSearchBody" class="list-group list-group-flush"></div>
             </div>
             <div class="modal-footer py-1">
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -354,6 +371,7 @@
 <script>
 let currentPage = 1;
 let searchTimer = null;
+let fileSearchMatchedIds = null;
 let editFlatpickr = null;
 let currentView = localStorage.getItem('docViewMode') || 'grid';
 let listSortCol = null;
@@ -435,19 +453,25 @@ function getParams() {
     if (ddt) p.doc_date_to = ddt;
     if (udf) p.upload_date_from = udf;
     if (udt) p.upload_date_to = udt;
+    const sf = document.getElementById('sizeFrom').value;
+    const st = document.getElementById('sizeTo').value;
+    if (sf) p.size_from = sf;
+    if (st) p.size_to = st;
+    if (fileSearchMatchedIds) p.highlight_ids = fileSearchMatchedIds.join(',');
     return p;
 }
 
 function loadDocuments() {
     const p = getParams();
     const qs = new URLSearchParams(p).toString();
+    const spinner = document.getElementById('searchSpinner');
+    if (p.search) spinner.style.display = '';
     fetch('/api/documents?' + qs)
         .then(r => r.json())
         .then(data => {
+            spinner.style.display = 'none';
             renderDocuments(data);
             applyView();
-            const searchVal = document.getElementById('searchInput').value.trim();
-            document.getElementById('searchDetailsBtn').style.display = (searchVal && data.total > 0) ? '' : 'none';
         });
 }
 
@@ -667,10 +691,17 @@ function saveMetadata() {
 // Live search with debounce
 document.getElementById('searchInput').addEventListener('input', () => {
     clearTimeout(searchTimer);
+    fileSearchMatchedIds = null;
     searchTimer = setTimeout(() => { currentPage = 1; loadDocuments(); }, 300);
 });
 ['categoryFilter', 'fileTypeFilter', 'favFilter'].forEach(id => {
     document.getElementById(id).addEventListener('change', () => { currentPage = 1; loadDocuments(); });
+});
+['sizeFrom', 'sizeTo'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => { currentPage = 1; loadDocuments(); }, 300);
+    });
 });
 document.getElementById('sortFilter').addEventListener('change', () => {
     listSortOverride = '';
@@ -942,49 +973,89 @@ function toggleShare() {
         });
 }
 
-function openSearchDetails() {
-    const q = document.getElementById('searchInput').value.trim();
-    if (!q) return;
-    document.getElementById('searchDetailsQuery').textContent = '"' + q + '"';
-    document.getElementById('searchDetailsBody').innerHTML = '<div class="p-3 text-center text-muted">Loading...</div>';
-    new bootstrap.Modal(document.getElementById('searchDetailsModal')).show();
+function openFileSearch() {
+    const modal = new bootstrap.Modal(document.getElementById('fileSearchModal'));
+    document.getElementById('fileSearchBody').innerHTML = '';
+    document.getElementById('fileSearchStatus').style.display = 'none';
+    modal.show();
+    setTimeout(() => document.getElementById('fileSearchInput').focus(), 300);
+}
 
-    fetch('/api/search-context?search=' + encodeURIComponent(q))
-        .then(r => r.json())
-        .then(data => {
-            const body = document.getElementById('searchDetailsBody');
-            if (!data.results.length) {
-                body.innerHTML = '<div class="p-3 text-muted">No matches found.</div>';
-                return;
+function renderMatchItem(r, q) {
+    const ql = q.toLowerCase();
+    const fieldLabel = r.match_field === 'content' ? '<span class="badge bg-info me-1">content</span>' : `<span class="badge bg-secondary me-1">${r.match_field}</span>`;
+    let line = r.match_line;
+    if (line) {
+        const idx = line.toLowerCase().indexOf(ql);
+        if (idx >= 0) {
+            const before = line.substring(0, idx);
+            const match = line.substring(idx, idx + q.length);
+            const after = line.substring(idx + q.length);
+            line = escapeHtml(before) + '<mark>' + escapeHtml(match) + '</mark>' + escapeHtml(after);
+        } else {
+            line = escapeHtml(line);
+        }
+    }
+    const ext = (r.file_extension || '').replace('.','').toUpperCase();
+    return `<a href="#" onclick="bootstrap.Modal.getInstance(document.getElementById('fileSearchModal')).hide(); openDocModal(${r.id}); return false;" class="list-group-item list-group-item-action">
+        <div class="d-flex justify-content-between align-items-start">
+            <strong class="small">${escapeHtml(r.original_filename)}</strong>
+            <span class="badge bg-secondary">${ext}</span>
+        </div>
+        <div class="small text-muted mt-1">${fieldLabel}<code class="text-wrap">${line || '<em>no preview</em>'}</code></div>
+    </a>`;
+}
+
+function runFileSearch() {
+    const q = document.getElementById('fileSearchInput').value.trim();
+    if (!q) return;
+    const btn = document.getElementById('fileSearchBtn');
+    const status = document.getElementById('fileSearchStatus');
+    const body = document.getElementById('fileSearchBody');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Searching...';
+    status.style.display = '';
+    status.innerHTML = '';
+    body.innerHTML = '';
+
+    const matchedIds = [];
+    const p = getParams();
+    delete p.search; delete p.page; delete p.sort; delete p.highlight_ids;
+    p.search = q;
+    const qs = new URLSearchParams(p).toString();
+    const evtSource = new EventSource('/api/search-context?' + qs);
+    evtSource.onmessage = function(e) {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'checking') {
+            status.innerHTML = 'Searching: <strong>' + escapeHtml(msg.filename) + '</strong>';
+        } else if (msg.type === 'match') {
+            matchedIds.push(msg.result.id);
+            body.insertAdjacentHTML('beforeend', renderMatchItem(msg.result, q));
+        } else if (msg.type === 'done') {
+            evtSource.close();
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-search"></i> Search';
+            if (msg.total === 0) {
+                status.innerHTML = 'No matches found.';
+            } else {
+                status.innerHTML = `Found <strong>${msg.total}</strong> match(es)`;
             }
-            const ql = q.toLowerCase();
-            let html = '';
-            data.results.forEach(r => {
-                const fieldLabel = r.match_field === 'content' ? '' : `<span class="badge bg-secondary me-1">${r.match_field}</span>`;
-                // Highlight match in line
-                let line = r.match_line;
-                if (line) {
-                    const idx = line.toLowerCase().indexOf(ql);
-                    if (idx >= 0) {
-                        const before = line.substring(0, idx);
-                        const match = line.substring(idx, idx + q.length);
-                        const after = line.substring(idx + q.length);
-                        line = escapeHtml(before) + '<mark>' + escapeHtml(match) + '</mark>' + escapeHtml(after);
-                    } else {
-                        line = escapeHtml(line);
-                    }
-                }
-                const ext = (r.file_extension || '').replace('.','').toUpperCase();
-                html += `<a href="#" onclick="bootstrap.Modal.getInstance(document.getElementById('searchDetailsModal')).hide(); openDocModal(${r.id}); return false;" class="list-group-item list-group-item-action">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <strong class="small">${escapeHtml(r.original_filename)}</strong>
-                        <span class="badge bg-secondary">${ext}</span>
-                    </div>
-                    <div class="small text-muted mt-1">${fieldLabel}<code class="text-wrap">${line || '<em>no preview</em>'}</code></div>
-                </a>`;
-            });
-            body.innerHTML = html;
-        });
+            if (matchedIds.length > 0) {
+                fileSearchMatchedIds = matchedIds;
+                loadDocuments();
+            }
+        }
+    };
+    evtSource.onerror = function() {
+        evtSource.close();
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-search"></i> Search';
+        status.innerHTML = 'Search finished.';
+        if (matchedIds.length > 0) {
+            fileSearchMatchedIds = matchedIds;
+            loadDocuments();
+        }
+    };
 }
 
 function escapeHtml(s) {
@@ -992,6 +1063,10 @@ function escapeHtml(s) {
     d.textContent = s;
     return d.innerHTML;
 }
+
+document.getElementById('fileSearchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runFileSearch();
+});
 
 loadDocuments();
 </script>

@@ -102,13 +102,13 @@ Admin account is created automatically on first startup. You will be forced to c
 ## Features
 
 - **Multi-format support**: PDF, DOCX, XLSX, CSV, Markdown, TXT
-- **In-browser viewing**: PDF viewer, XLSX/CSV table renderer, Markdown/DOCX/TXT renderers
+- **In-browser viewing**: PDF viewer, XLSX/CSV table renderer, Markdown/DOCX/TXT renderers with Mermaid diagrams and KaTeX LaTeX formulas
 - **Grid/List view**: toggle between thumbnail grid and detailed sortable table view
-- **Full-text search**: searches inside document content (PDF, DOCX, MD, TXT)
-- **Search context**: detail button shows first matching line per document with highlighting
+- **Metadata search**: live search across filename, description, notes, hashtags (fast, deferred content column)
+- **File content search**: dedicated modal with real-time SSE progress showing each file being searched, results streamed as found
 - **Live search**: diacritics-insensitive, no Enter key needed
 - **Column sorting**: click list view headers (Name, Type, Size, Created, Modified) to sort across all pages
-- **Filters**: category, file type, sort, favorites, date ranges
+- **Filters**: category, file type, sort, favorites, date ranges, file size (KB from/to)
 - **Multi-file upload**: upload multiple files at once with progress bar
 - **Favorites**: star/bookmark documents, filter by favorites
 - **Public sharing**: generate shareable links for documents (no login required)
@@ -121,7 +121,7 @@ Admin account is created automatically on first startup. You will be forced to c
 - **Secure document URLs**: daily-rotating hash-based URLs for document viewing
 - **Access control**: admin/user roles, private documents
 - **Security**: CSRF protection, XSS sanitization, LIKE injection prevention, rate-limited login, streaming uploads with size limits, path traversal protection, forced password change for default admin
-- **Offline**: all CSS/JS/fonts served locally
+- **Offline**: all CSS/JS/fonts served locally (Bootstrap, Flatpickr, Mermaid, KaTeX)
 - **Help manual**: in-app user guide accessible via navbar
 - **Docker ready**: Dockerfile + docker-compose.yml with `.env` file support
 

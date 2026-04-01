@@ -20,7 +20,7 @@ Document Manager is a FastAPI web application for managing documents (PDF, DOCX,
 | DOCX processing | python-docx (HTML rendering) |
 | XLSX processing | openpyxl (table rendering, text extraction) |
 | CSV processing | csv stdlib (table rendering, text extraction) |
-| Markdown | markdown (HTML rendering) |
+| Markdown | markdown (HTML rendering) + Mermaid (diagrams) + KaTeX (LaTeX formulas) |
 | Deployment | Docker / Docker Compose with `.env` |
 
 ## Project Structure
@@ -93,14 +93,30 @@ Private documents are visible only to uploader and admin.
 
 ## Search
 
+### Metadata Search (main search bar)
 - Live search (debounced 300ms, no Enter required)
-- **Full-text search**: searches inside document content (PDF, DOCX, MD, TXT)
-- Diacritics-insensitive (unicode normalization NFKD) — both metadata and content
-- Searches across: filename, description, notes, hashtags, **document content**
+- Diacritics-insensitive (unicode normalization NFKD)
+- Searches across: filename, description, notes, hashtags (metadata only — fast)
+- `Document.content` column is **deferred** (not loaded in main queries) for performance
+- LIKE wildcard characters (`%`, `_`) escaped in search queries
+- Spinner in search input during loading
+
+### File Content Search (dedicated modal)
+- Opened via "in files" button next to search bar
+- Dedicated modal with its own search input
+- Uses **Server-Sent Events (SSE)** for real-time progress:
+  - Shows filename of each document being searched
+  - Results appear incrementally as matches are found
+- Respects all active filters (category, file type, dates, size, favorites, hidden hashtags)
+- After search completes, main document list is filtered to show only matched documents
 - Content extracted on upload via `extract_text()` helper, stored normalized (lowercase, no diacritics) in `Document.content` column
 - Existing documents backfilled on startup
-- LIKE wildcard characters (`%`, `_`) escaped in search queries
-- Filters: category, file type (.pdf/.docx/.xlsx/.csv/.md/.txt)
+
+### Filters
+- Category, file type (.pdf/.docx/.xlsx/.csv/.md/.txt)
+- File size range (KB from/to)
+- Document date range, upload date range
+- Favorites only
 - Sort: random (default), upload date, document date, file size, name, type, modified
 - List view column sorting: name, type, size, created, modified (server-side, stable across pages)
 
@@ -116,7 +132,7 @@ Per-user preferences stored in `user_settings` table:
 ## Document Viewing
 
 - **PDF**: served via iframe from `/v/{hash}/pdf`
-- **Markdown**: rendered to HTML via Python `markdown` library
+- **Markdown**: rendered to HTML via Python `markdown` library, with Mermaid diagram rendering and KaTeX LaTeX formula rendering (both offline, served locally)
 - **TXT**: displayed in `<pre>` tag with word-wrap
 - **DOCX**: converted to HTML via `python-docx` (headings, formatting, tables)
 - **XLSX**: rendered as HTML tables (one per sheet) via `openpyxl`
@@ -157,13 +173,16 @@ Per-user preferences stored in `user_settings` table:
   - Stable sort with secondary ordering by document ID (no reordering when paging)
 - View preference persisted in localStorage
 
-## Search Context
+## File Content Search Modal
 
-- Detail button appears when search has results
-- Opens modal showing each matching document with:
-  - Filename and file type
-  - First matching line with search term highlighted
-  - Field where match was found (content, filename, description, etc.)
+- Opened via "in files" button in the toolbar
+- Modal with dedicated search input and Search button (Enter key supported)
+- Backend streams results via SSE (`/api/search-context` endpoint with `text/event-stream`)
+- Event types: `checking` (filename being searched), `match` (result found), `done` (complete)
+- Each match shows: filename, file type badge, matched field label, first matching line with highlighting
+- Click a result to open the document in view modal
+- After search completes, main document list is automatically filtered to matched documents only
+- Respects all active dashboard filters
 
 ## Security
 

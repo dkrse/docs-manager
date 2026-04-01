@@ -10,7 +10,7 @@ from datetime import datetime, date
 from fastapi import APIRouter, Depends, Request, Form, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, undefer
 from sqlalchemy import or_, func
 from app.database import get_db
 from app.models import User, Document, UserSettings, Favorite
@@ -76,6 +76,53 @@ FILE_TYPE_ICONS = {
     ".xlsx": "bi-file-earmark-excel text-success",
     ".csv": "bi-file-earmark-spreadsheet text-success",
 }
+
+
+_MD_EXTRA_HEAD = """
+<link href="/static/css/katex.min.css" rel="stylesheet">
+<script src="/static/js/katex.min.js"></script>
+<script src="/static/js/katex-auto-render.min.js"></script>
+<script src="/static/js/mermaid.min.js"></script>
+"""
+
+_MD_EXTRA_SCRIPT = """
+<script>
+mermaid.initialize({startOnLoad: false, theme: 'default'});
+document.querySelectorAll('pre > code.language-mermaid').forEach(function(el) {
+    var pre = el.parentElement;
+    var div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = el.textContent;
+    pre.replaceWith(div);
+});
+mermaid.run();
+renderMathInElement(document.body, {
+    delimiters: [
+        {left: '$$', right: '$$', display: true},
+        {left: '$', right: '$', display: false},
+        {left: '\\\\(', right: '\\\\)', display: false},
+        {left: '\\\\[', right: '\\\\]', display: true}
+    ],
+    throwOnError: false
+});
+</script>
+"""
+
+
+def _render_page(body: str, is_md: bool = False) -> str:
+    extra_head = _MD_EXTRA_HEAD if is_md else ""
+    extra_script = _MD_EXTRA_SCRIPT if is_md else ""
+    return f"""<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<link href="/static/css/bootstrap.min.css" rel="stylesheet">
+{extra_head}
+<style>body {{ padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }}
+pre {{ background: #f8f9fa; padding: 15px; border-radius: 4px; }}
+table {{ margin: 10px 0; }}
+img {{ max-width: 100%; }}
+.mermaid {{ text-align: center; }}</style>
+</head><body>{body}{extra_script}</body></html>"""
 
 
 def extract_text(file_path: str, extension: str) -> str:
@@ -308,6 +355,9 @@ async def api_documents(
     upload_date_from: str = "",
     upload_date_to: str = "",
     favorites_only: str = "",
+    highlight_ids: str = "",
+    size_from: str = "",
+    size_to: str = "",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -345,7 +395,6 @@ async def api_documents(
                 func.lower(Document.description).ilike(like, escape="\\"),
                 func.lower(Document.notes).ilike(like, escape="\\"),
                 func.lower(Document.hashtags).ilike(like, escape="\\"),
-                func.lower(Document.content).ilike(like, escape="\\"),
             )
         )
     if category:
@@ -374,6 +423,17 @@ async def api_documents(
         except ValueError:
             pass
 
+    if size_from:
+        try:
+            query = query.filter(Document.file_size >= int(size_from) * 1024)
+        except ValueError:
+            pass
+    if size_to:
+        try:
+            query = query.filter(Document.file_size <= int(size_to) * 1024)
+        except ValueError:
+            pass
+
     sort_map = {
         "upload_desc": Document.uploaded_at.desc(),
         "upload_asc": Document.uploaded_at.asc(),
@@ -389,6 +449,16 @@ async def api_documents(
         "modified_asc": Document.updated_at.asc(),
         "random": func.random(),
     }
+    hl_ids = set()
+    if highlight_ids:
+        try:
+            hl_ids = set(int(x) for x in highlight_ids.split(",") if x.strip())
+        except ValueError:
+            pass
+
+    if hl_ids:
+        query = query.filter(Document.id.in_(hl_ids))
+
     if sort == "random":
         query = query.order_by(func.random())
     else:
@@ -650,16 +720,7 @@ async def render_document(doc_id: int, current_user: User = Depends(get_current_
     else:
         raise HTTPException(status_code=400, detail="Unsupported format for rendering")
 
-    html_page = f"""<!DOCTYPE html>
-<html><head>
-<meta charset="utf-8">
-<link href="/static/css/bootstrap.min.css" rel="stylesheet">
-<style>body {{ padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }}
-pre {{ background: #f8f9fa; padding: 15px; border-radius: 4px; }}
-table {{ margin: 10px 0; }}
-img {{ max-width: 100%; }}</style>
-</head><body>{body}</body></html>"""
-    return HTMLResponse(html_page)
+    return HTMLResponse(_render_page(body, is_md=(ext == ".md")))
 
 
 @router.get("/v/{doc_hash}/pdf")
@@ -704,14 +765,7 @@ async def view_render_by_hash(doc_hash: str, current_user: User = Depends(get_cu
             body = f"<p class='text-danger'>Error: {_esc(str(e))}</p>"
     else:
         raise HTTPException(status_code=400)
-    html_page = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<link href="/static/css/bootstrap.min.css" rel="stylesheet">
-<style>body {{ padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }}
-pre {{ background: #f8f9fa; padding: 15px; border-radius: 4px; }}
-table {{ margin: 10px 0; }} img {{ max-width: 100%; }}</style>
-</head><body>{body}</body></html>"""
-    return HTMLResponse(html_page)
+    return HTMLResponse(_render_page(body, is_md=(ext == ".md")))
 
 
 @router.post("/document/{doc_id}/delete")
@@ -730,73 +784,124 @@ async def delete_document(doc_id: int, current_user: User = Depends(get_current_
     return RedirectResponse(url="/", status_code=302)
 
 
-@router.get("/api/search-context", response_class=JSONResponse)
+@router.get("/api/search-context")
 async def search_context(
     search: str = "",
+    category: str = "",
+    file_type: str = "",
+    doc_date_from: str = "",
+    doc_date_to: str = "",
+    upload_date_from: str = "",
+    upload_date_to: str = "",
+    favorites_only: str = "",
+    size_from: str = "",
+    size_to: str = "",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    import json as _json
+
     if not search or len(search) < 1:
-        return {"results": []}
+        return JSONResponse({"results": []})
+
+    normalized = remove_diacritics(search.lower())
 
     settings = get_user_settings(current_user, db)
-    normalized = remove_diacritics(search.lower())
-    like = f"%{_escape_like(normalized)}%"
-
-    query = db.query(Document)
+    query = db.query(Document).options(undefer(Document.content))
     if not current_user.is_admin:
         query = query.filter(
             or_(Document.uploaded_by == current_user.id, Document.is_private == False)
         )
 
-    query = query.filter(
-        or_(
-            func.lower(Document.original_filename).ilike(like, escape="\\"),
-            func.lower(Document.description).ilike(like, escape="\\"),
-            func.lower(Document.notes).ilike(like, escape="\\"),
-            func.lower(Document.hashtags).ilike(like, escape="\\"),
-            func.lower(Document.content).ilike(like, escape="\\"),
-        )
-    )
+    hidden = settings.hidden_hashtags.strip() if settings.hidden_hashtags else ""
+    if hidden:
+        hidden_tags = [t.strip().lower() for t in hidden.split(",") if t.strip()]
+        for tag in hidden_tags:
+            query = query.filter(~func.lower(Document.hashtags).ilike(f"%{_escape_like(tag)}%", escape="\\"))
 
-    docs = query.limit(50).all()
-    results = []
-    for doc in docs:
-        # Find first matching line in content
-        match_line = ""
-        match_field = ""
-        for field_name, field_val in [
-            ("content", doc.content or ""),
-            ("filename", doc.original_filename or ""),
-            ("description", doc.description or ""),
-            ("notes", doc.notes or ""),
-            ("hashtags", doc.hashtags or ""),
-        ]:
-            if not field_val:
-                continue
-            norm_val = remove_diacritics(field_val.lower()) if field_name == "content" else field_val.lower()
-            if normalized in norm_val:
-                # Find the actual line
-                lines = field_val.split("\n") if field_name == "content" else [field_val]
-                for line in lines:
-                    norm_line = remove_diacritics(line.lower()) if field_name == "content" else line.lower()
-                    if normalized in norm_line:
-                        match_line = line.strip()
-                        match_field = field_name
+    if favorites_only == "1":
+        fav_doc_ids = [r[0] for r in db.query(Favorite.document_id).filter(Favorite.user_id == current_user.id).all()]
+        query = query.filter(Document.id.in_(fav_doc_ids))
+    if category:
+        query = query.filter(Document.category == category)
+    if file_type:
+        query = query.filter(Document.file_extension == file_type)
+    if doc_date_from:
+        try:
+            query = query.filter(Document.document_date >= datetime.strptime(doc_date_from, "%Y-%m-%d"))
+        except ValueError:
+            pass
+    if doc_date_to:
+        try:
+            query = query.filter(Document.document_date <= datetime.strptime(doc_date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        except ValueError:
+            pass
+    if upload_date_from:
+        try:
+            query = query.filter(Document.uploaded_at >= datetime.strptime(upload_date_from, "%Y-%m-%d"))
+        except ValueError:
+            pass
+    if upload_date_to:
+        try:
+            query = query.filter(Document.uploaded_at <= datetime.strptime(upload_date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        except ValueError:
+            pass
+    if size_from:
+        try:
+            query = query.filter(Document.file_size >= int(size_from) * 1024)
+        except ValueError:
+            pass
+    if size_to:
+        try:
+            query = query.filter(Document.file_size <= int(size_to) * 1024)
+        except ValueError:
+            pass
+
+    docs = query.all()
+
+    def generate():
+        results = []
+        for doc in docs:
+            yield f"data: {_json.dumps({'type': 'checking', 'filename': doc.original_filename})}\n\n"
+
+            match_line = ""
+            match_field = ""
+            for field_name, field_val in [
+                ("content", doc.content or ""),
+                ("filename", doc.original_filename or ""),
+                ("description", doc.description or ""),
+                ("notes", doc.notes or ""),
+                ("hashtags", doc.hashtags or ""),
+            ]:
+                if not field_val:
+                    continue
+                norm_val = remove_diacritics(field_val.lower()) if field_name == "content" else field_val.lower()
+                if normalized in norm_val:
+                    lines = field_val.split("\n") if field_name == "content" else [field_val]
+                    for line in lines:
+                        norm_line = remove_diacritics(line.lower()) if field_name == "content" else line.lower()
+                        if normalized in norm_line:
+                            match_line = line.strip()
+                            match_field = field_name
+                            break
+                    if match_line:
                         break
-                if match_line:
-                    break
 
-        results.append({
-            "id": doc.id,
-            "original_filename": doc.original_filename,
-            "file_extension": doc.file_extension or "",
-            "match_line": match_line[:500],
-            "match_field": match_field,
-            "doc_hash": make_doc_hash(doc.id),
-        })
+            if match_line or match_field:
+                result = {
+                    "id": doc.id,
+                    "original_filename": doc.original_filename,
+                    "file_extension": doc.file_extension or "",
+                    "match_line": match_line[:500],
+                    "match_field": match_field,
+                    "doc_hash": make_doc_hash(doc.id),
+                }
+                results.append(result)
+                yield f"data: {_json.dumps({'type': 'match', 'result': result})}\n\n"
 
-    return {"results": results, "query": search}
+        yield f"data: {_json.dumps({'type': 'done', 'total': len(results)})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @router.post("/api/bulk-delete", response_class=JSONResponse)
@@ -892,12 +997,15 @@ async def public_shared_viewer(token: str, db: Session = Depends(get_db)):
         body = xlsx_to_html(doc.file_path)
     elif ext == ".csv":
         body = csv_to_html(doc.file_path)
+    md_head = _MD_EXTRA_HEAD if ext == ".md" else ""
+    md_script = _MD_EXTRA_SCRIPT if ext == ".md" else ""
     return HTMLResponse(f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>{safe_name}</title>
     <link href="/static/css/bootstrap.min.css" rel="stylesheet">
-    <style>body {{ padding: 20px; }}</style>
+    {md_head}
+    <style>body {{ padding: 20px; }} .mermaid {{ text-align: center; }}</style>
     </head><body><h5>{safe_name}</h5>{body}
     <hr><a href="/shared/{_esc(token)}" class="btn btn-sm btn-success"><i class="bi bi-download"></i> Download</a>
-    </body></html>""")
+    {md_script}</body></html>""")
 
 
 @router.post("/api/document/{doc_id}/favorite", response_class=JSONResponse)

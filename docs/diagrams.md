@@ -185,7 +185,7 @@ graph LR
         EDIT[POST /document/id/edit]
         DEL[POST /document/id/delete]
         API[GET /api/documents]
-        SEARCH[GET /api/search-context]
+        SEARCH[GET /api/search-context SSE]
         FAV[POST /api/document/id/favorite]
         SHARE[POST /api/document/id/share]
         BULKDEL[POST /api/bulk-delete]

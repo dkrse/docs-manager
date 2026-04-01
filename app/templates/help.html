@@ -19,7 +19,9 @@
                         <ul>
                             <li><i class="bi bi-file-earmark-pdf text-danger"></i> <strong>PDF</strong> &mdash; with thumbnail preview and in-browser viewer</li>
                             <li><i class="bi bi-file-earmark-word text-primary"></i> <strong>DOCX</strong> &mdash; Microsoft Word documents, rendered as HTML</li>
-                            <li><i class="bi bi-file-earmark-text text-info"></i> <strong>MD</strong> &mdash; Markdown files, rendered with formatting</li>
+                            <li><i class="bi bi-file-earmark-excel text-success"></i> <strong>XLSX</strong> &mdash; Excel spreadsheets, rendered as HTML tables</li>
+                            <li><i class="bi bi-file-earmark-spreadsheet text-success"></i> <strong>CSV</strong> &mdash; comma-separated values, rendered as HTML table</li>
+                            <li><i class="bi bi-file-earmark-text text-info"></i> <strong>MD</strong> &mdash; Markdown files, rendered with formatting, <strong>Mermaid diagrams</strong> and <strong>LaTeX formulas</strong> (KaTeX)</li>
                             <li><i class="bi bi-file-earmark-text text-secondary"></i> <strong>TXT</strong> &mdash; plain text files</li>
                         </ul>
                         <p>Each document can have a <strong>category</strong>, <strong>hashtags</strong>, <strong>description</strong>, <strong>notes</strong>, <strong>document date</strong>, and <strong>private/public</strong> visibility.</p>
@@ -37,7 +39,7 @@
                     <div class="accordion-body">
                         <ol>
                             <li>Click <strong>Upload</strong> in the navigation bar or toolbar &mdash; opens a modal dialog.</li>
-                            <li>Select one or <strong>multiple files</strong> (PDF, DOCX, MD, or TXT).</li>
+                            <li>Select one or <strong>multiple files</strong> (PDF, DOCX, XLSX, CSV, MD, or TXT).</li>
                             <li>For PDF files, you can choose which page to use as the <strong>thumbnail preview</strong>.</li>
                             <li>Fill in optional metadata (applies to all selected files):
                                 <ul>
@@ -102,7 +104,16 @@
                 </h2>
                 <div id="helpViewer" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
                     <div class="accordion-body">
-                        <p>Clicking a document opens a modal with the document content and metadata. Available actions in the modal footer:</p>
+                        <p>Clicking a document opens a modal with the document content and metadata.</p>
+                        <h6>Markdown features</h6>
+                        <p>Markdown files support extended rendering:</p>
+                        <ul>
+                            <li><strong>Mermaid diagrams</strong> &mdash; fenced code blocks with language <code>mermaid</code> are rendered as diagrams (flowcharts, sequence diagrams, etc.)</li>
+                            <li><strong>LaTeX formulas</strong> &mdash; inline formulas with <code>$...$</code> and display formulas with <code>$$...$$</code> are rendered via KaTeX</li>
+                            <li>Tables, fenced code blocks, and code highlighting</li>
+                        </ul>
+                        <h6>Actions</h6>
+                        <p>Available actions in the modal footer:</p>
                         <ul>
                             <li><i class="bi bi-share text-primary"></i> <strong>Share</strong> &mdash; generate a public link (see Sharing section)</li>
                             <li><i class="bi bi-box-arrow-up-right text-info"></i> <strong>Open</strong> &mdash; open the document in a new tab (full page). Uses secure daily-rotating URLs.</li>
@@ -120,31 +131,33 @@
                 </h2>
                 <div id="helpSearch" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
                     <div class="accordion-body">
-                        <h6>Full-text search</h6>
-                        <p>Type in the <strong>Search</strong> field to search across:</p>
+                        <h6>Metadata search</h6>
+                        <p>Type in the <strong>Search</strong> field to search across metadata:</p>
                         <ul>
                             <li>Filename</li>
                             <li>Description, Notes, Hashtags</li>
-                            <li><strong>Document content</strong> &mdash; the actual text inside PDF, DOCX, MD, and TXT files</li>
                         </ul>
                         <p>Search is <strong>diacritics-insensitive</strong> &mdash; e.g. searching for <code>resume</code> will find "R&eacute;sum&eacute;". Results update automatically as you type.</p>
 
-                        <h6><i class="bi bi-info-circle text-info"></i> Search Details</h6>
-                        <p>When search results are found, an <i class="bi bi-info-circle"></i> button appears next to the search field. Click it to open a modal showing:</p>
+                        <h6><i class="bi bi-file-earmark-text text-info"></i> Search in files</h6>
+                        <p>Click the <strong>in files</strong> button to open a dedicated search modal for searching inside document content (PDF, DOCX, XLSX, CSV, MD, TXT):</p>
                         <ul>
-                            <li>Each matching document with filename and type</li>
-                            <li>The <strong>first matching line</strong> with the search term highlighted</li>
-                            <li>Which field the match was found in (content, filename, description, etc.)</li>
+                            <li>Enter a search term and click <strong>Search</strong> (or press Enter)</li>
+                            <li>Real-time progress shows the <strong>name of each file</strong> being searched</li>
+                            <li>Results appear <strong>incrementally</strong> as matches are found, with the matching line highlighted</li>
+                            <li>Click any result to open that document</li>
+                            <li>After search completes, the <strong>main document list</strong> is automatically filtered to show only matched documents</li>
+                            <li>All active filters (category, type, dates, size, favorites) are respected</li>
                         </ul>
-                        <p>Click any result to open that document.</p>
 
                         <h6>Filters</h6>
                         <p>Click the <i class="bi bi-funnel"></i> <strong>Filter</strong> button to show advanced filters:</p>
                         <ul>
                             <li><strong>Category</strong> &mdash; filter by document category</li>
-                            <li><strong>Type</strong> &mdash; filter by file type (PDF, DOCX, MD, TXT)</li>
+                            <li><strong>Type</strong> &mdash; filter by file type (PDF, DOCX, XLSX, CSV, MD, TXT)</li>
                             <li><strong>Sort</strong> &mdash; change sort order (random, upload date, document date, file size)</li>
                             <li><strong>Favorites</strong> &mdash; show only starred documents</li>
+                            <li><strong>Size (KB)</strong> &mdash; filter by file size range (from/to in kilobytes)</li>
                             <li><strong>Doc date / Upload date</strong> &mdash; filter by date range</li>
                         </ul>
                     </div>
